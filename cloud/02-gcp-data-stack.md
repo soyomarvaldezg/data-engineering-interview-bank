@@ -3,381 +3,359 @@
 **Tags**: #cloud #gcp #bigquery #dataflow #cloud-storage #pub-sub #real-interview  
 **Empresas**: Google, Meta, Airbnb, Spotify, Shopify  
 **Dificultad**: Mid  
-**Tiempo estimado**: 20 min  
+**Tiempo estimado**: 20 min
 
 ---
 
 ## TL;DR
 
-**GCP data stack**: Cloud Storage (S3 equivalent) → Dataflow (managed Beam/Spark) → BigQuery (OLAP + ML). **Key advantage**: BigQuery = serverless warehouse + SQL + ML in one. No need separate data lake. **Trade-off**: Easier vs Less control. Best for: Analytics companies, SQL-first, less infrastructure.
+GCP data stack: **Cloud Storage (S3 equivalent)** → **Dataflow (managed Beam/Spark)** → **BigQuery (OLAP + ML)**.  
+Ventaja clave: BigQuery = serverless warehouse + SQL + ML en uno; muchas veces no necesitas data lake separado.  
+Trade-off: Más fácil de operar vs menos control fino.  
+Ideal para: Analytics-first, SQL-first, equipos con poco overhead de infraestructura.
 
 ---
 
 ## Concepto Core
 
-- **Qué es**: GCP = Google's cloud. Diferente filosofía vs AWS (managed > DIY)
-- **Por qué importa**: Growing adoption, especially BigQuery (40% of analytics shops)
-- **Principio clave**: "Analytics warehouse" model (BigQuery) vs "Data Lake" model (AWS S3)
+- Qué es: GCP es la nube de Google con filosofía managed-first (menos DIY, más serverless).
+- Por qué importa: Adopción creciente, especialmente BigQuery en analytics/ML.
+- Principio clave: Modelo “analytics warehouse” (BigQuery) vs modelo “data lake” (Cloud Storage + engines).
 
 ---
 
 ## Arquitectura
 
+```
 ┌──────────────────────────────────────┐
-│ DATA SOURCES │
-│ ├─ Firestore / Datastore │
-│ ├─ Cloud SQL (MySQL, PostgreSQL) │
-│ ├─ APIs │
-│ └─ On-prem databases │
+│ DATA SOURCES                        │
+│ ├─ Firestore / Datastore            │
+│ ├─ Cloud SQL (MySQL, PostgreSQL)    │
+│ ├─ APIs                             │
+│ └─ On-prem databases                │
 └───────────────┬──────────────────────┘
-│
-▼
+                │
+                ▼
 ┌──────────────────────────────────────┐
-│ GCP INGESTION │
-│ ├─ Cloud Pub/Sub (real-time) │
-│ ├─ Datastream (CDC replication) │
-│ ├─ Cloud Transfer Service │
-│ └─ Dataflow (ETL) │
+│ GCP INGESTION                       │
+│ ├─ Cloud Pub/Sub (real-time)        │
+│ ├─ Datastream (CDC replication)     │
+│ ├─ Cloud Transfer Service           │
+│ └─ Dataflow (ETL)                   │
 └───────────────┬──────────────────────┘
-│
-┌───────────┴───────────┐
-│ │
-▼ ▼
-┌─────────────┐ ┌──────────────┐
-│ Cloud │ │ Dataflow │
-│ Storage │ │ (Beam/Spark) │
-│ (Data Lake) │ │ Transform │
-└──────┬──────┘ └──────┬───────┘
-│ │
-└────────┬───────────┘
-│
-▼
+                │
+       ┌────────┴───────────┐
+       │                    │
+       ▼                    ▼
+┌─────────────┐     ┌──────────────┐
+│ Cloud       │     │ Dataflow     │
+│ Storage     │     │ (Beam/Spark) │
+│ (Data Lake) │     │ Transform    │
+└──────┬──────┘     └──────┬───────┘
+       │                    │
+       └────────┬───────────┘
+                │
+                ▼
 ┌──────────────────────────────────────┐
-│ BIGQUERY │
-│ ├─ Serverless warehouse │
-│ ├─ SQL analytics │
-│ ├─ ML (BigQuery ML) │
-│ └─ BI Engine (caching) │
+│ BIGQUERY                             │
+│ ├─ Serverless warehouse              │
+│ ├─ SQL analytics                     │
+│ ├─ BQML (ML integrado)               │
+│ └─ BI Engine (in-memory cache)       │
 └───────────────┬──────────────────────┘
-│
-┌───────────┴───────────┐
-│ │
-▼ ▼
-┌──────────────┐ ┌──────────────┐
-│ Looker │ │ Data Studio │
-│ (BI Tool) │ │ (Free viz) │
-└──────────────┘ └──────────────┘
-
-text
+                │
+       ┌────────┴───────────┐
+       │                    │
+       ▼                    ▼
+┌──────────────┐     ┌──────────────┐
+│ Looker       │     │ Looker Studio│
+│ (BI)         │     │ (Free viz)   │
+└──────────────┘     └──────────────┘
+```
 
 ---
 
 ## Key Services
 
-### 1. Cloud Storage (GCS)
+### 1) Cloud Storage (GCS)
 
-What: Object storage (like AWS S3)
-Why: Cheap, integrates with BigQuery
-Cons: Similar to S3
+- What: Object storage (similar a AWS S3).
+- Why: Barato, alta durabilidad, integra bien con BigQuery y Dataflow.
+- Cons: Mismas consideraciones de S3 (consistencia eventual en listados, egress costs).
 
-Pricing:
+**Features:**
 
-Storage: $0.020/GB/month (cheaper than S3)
+- Multi-regional replication (high availability).
+- Object Lifecycle (mover a Coldline/Archive para ahorro).
+- Signed URLs (acceso temporal).
 
-Transfer out: $0.12/GB (more than AWS)
+**URI pattern:**
 
-Features:
+```
+gs://bucket/path/object
+```
 
-Multi-regional replication (HA)
+---
 
-Object Lifecycle (archive to Coldline, Archive)
+### 2) BigQuery (Game Changer)
 
-Signed URLs (time-limited access)
+- What: Serverless data warehouse + SQL + ML (BQML).
+- Why: Query escala TB–PB sin gestionar clusters; autoscaling; pay-per-query u opciones de flat-rate.
+- Diferencia vs Redshift: En BigQuery pagas por bytes escaneados y no dimensionas clusters; Redshift requiere sizing y pagar por nodos.
 
-Architecture: gs://bucket/path/object
+**Features:**
 
-text
+- SQL dialect estándar (con extensiones analíticas).
+- BQML para entrenar modelos sin salir de SQL.
+- Federated queries (consultar datos en Cloud Storage o Bigtable).
+- BI Engine (caché in-memory para latencias de BI muy bajas).
 
-### 2. BigQuery (Game Changer)
+**Example: SQL de agregación**
 
-What: Serverless data warehouse + SQL + ML
-Why: Query 1TB in seconds, no clusters to manage
-Cost: $6.25 per TB queried (or flat rate $2000/month)
-
-Key Difference from Redshift:
-
-Redshift: You manage compute (pay for nodes)
-
-BigQuery: You query data, pay per byte scanned
-
-BigQuery: Auto-scales (no cluster sizing)
-
-Features:
-
-SQL dialect (mostly standard SQL)
-
-ML capabilities built-in (BQML)
-
-Federated queries (query Cloud Storage directly)
-
-BI Engine (in-memory cache, 100x faster)
-
-Example: Simple query
+```
 SELECT
-customer_id,
-SUM(amount) as total_spent,
-COUNT(*) as num_purchases
-FROM project.dataset.transactions
+  customer_id,
+  SUM(amount) AS total_spent,
+  COUNT(*)    AS num_purchases
+FROM `project.dataset.transactions`
 WHERE date >= '2024-01-01'
 GROUP BY customer_id
 ORDER BY total_spent DESC;
+```
 
-Cost: ~1GB scanned = $6.25
+**Example: Entrenar un modelo con BQML**
 
-Example: ML model (without code)
-CREATE OR REPLACE MODEL project.dataset.fraud_model
-OPTIONS(
-model_type='linear_reg'
-) AS
+```
+CREATE OR REPLACE MODEL `project.dataset.fraud_model`
+OPTIONS(model_type = 'linear_reg') AS
 SELECT
-amount,
-customer_age,
-is_fraud as label
-FROM project.dataset.transactions
+  amount,
+  customer_age,
+  is_fraud AS label
+FROM `project.dataset.transactions`
 WHERE date >= '2024-01-01';
+```
 
-Now predict
+**Example: Predicción con el modelo**
+
+```
 SELECT
-amount,
-customer_age,
-ml.predict_value(MODEL project.dataset.fraud_model, *) as fraud_prob
-FROM project.dataset.transactions_new;
+  amount,
+  customer_age,
+  ml.predict_value(MODEL `project.dataset.fraud_model`, t) AS fraud_prob
+FROM `project.dataset.transactions_new` AS t;
+```
 
-text
+---
 
-### 3. Dataflow (Managed Beam)
+### 3) Dataflow (Managed Beam)
 
-What: Managed Apache Beam (Spark alternative)
-Why: Serverless, auto-scales, integrated with Pub/Sub
-Cons: Beam is less popular than Spark, less ecosystem
+- What: Managed Apache Beam para batch y streaming; alternativa a Spark/EMR.
+- Why: Serverless autoscaling, integración nativa con Pub/Sub, GCS, BigQuery.
+- Cons: Ecosistema Beam menor que Spark; curva de aprendizaje en SDKs (Python/Java).
 
-Use cases:
+**Use cases:**
 
-Batch ETL (like Spark)
+- Batch ETL sobre GCS → BigQuery (Parquet/CSV/JSON).
+- Streaming pipelines (Pub/Sub → Dataflow → BigQuery/Sink).
 
-Streaming (like Kafka consumers)
+**Example: Batch pipeline (Beam)**
 
-Pricing:
-
-$0.07 per vCPU-hour (cheaper than EMR)
-
-No cluster overhead
-
-Example: Batch pipeline
+```
 import apache_beam as beam
+from apache_beam.options.pipeline_options import PipelineOptions
 
-with beam.Pipeline(runner='DataflowRunner') as p:
-(p
-| 'Read from GCS' >> beam.io.ReadFromText('gs://bucket/input.txt')
-| 'Parse JSON' >> beam.Map(parse_json)
-| 'Filter invalid' >> beam.Filter(is_valid)
-| 'Write to BigQuery' >> beam.io.WriteToBigQuery('project:dataset.table')
-)
+with beam.Pipeline(runner='DataflowRunner', options=PipelineOptions()) as p:
+    (
+        p
+        | 'Read from GCS' >> beam.io.ReadFromText('gs://bucket/input.json')
+        | 'Parse JSON'   >> beam.Map(parse_json)
+        | 'Filter valid' >> beam.Filter(is_valid)
+        | 'Write to BQ'  >> beam.io.WriteToBigQuery('project:dataset.table')
+    )
+```
 
-text
+---
 
-### 4. Pub/Sub (Streaming)
+### 4) Pub/Sub (Streaming)
 
-What: Kafka alternative (message broker)
-Why: Fully managed, no ops, auto-scales
-Cons: Different API than Kafka, less flexible
+- What: Managed messaging (alternativa a Kafka para event streaming).
+- Why: Fully managed, auto-scale, bajo overhead operativo.
+- Cons: API diferente a Kafka; menor flexibilidad para ciertos patrones.
 
-Use cases:
+**Use cases:**
 
-Real-time data pipeline
+- Real-time ingestion (event-driven).
+- Decoupling producers/consumers.
+- Stream processing con Dataflow.
 
-Event streaming
+**Example: Publisher**
 
-Decoupling producers/consumers
+```
+from google.cloud import pubsub_v1
+import json
 
-Pricing: $0.04 per GB
-
-Architecture:
-Publisher → Pub/Sub Topic → Subscriber (Lambda-like)
-
-Example: Real-time transaction processing
-
-Publisher (credit card service)
 publisher = pubsub_v1.PublisherClient()
 topic_path = publisher.topic_path('project-id', 'transactions')
 
-for transaction in incoming_transactions:
-publisher.publish(topic_path, json.dumps(transaction).encode('utf-8'))
+for tx in incoming_transactions:
+    publisher.publish(topic_path, json.dumps(tx).encode('utf-8'))
+```
 
-Subscriber (Dataflow job)
-Consume from Pub/Sub, enrich, write to BigQuery in real-time
-text
+---
 
-### 5. Datastream (CDC Replication)
+### 5) Datastream (CDC Replication)
 
-What: Serverless CDC (Change Data Capture)
-Why: Replicate from MySQL/PostgreSQL/Oracle to BigQuery
-Cons: Only supports certain databases
+- What: Serverless CDC para replicar cambios de MySQL/PostgreSQL/Oracle.
+- Why: Near real-time replication hacia BigQuery/GCS sin ETL manual.
+- Cons: Soporte limitado a fuentes/destinos compatibles.
 
-Example: Replicate customers from MySQL to BigQuery
+**Flujo típico:**
 
-Set up Datastream connection
-Source: MySQL (production database)
-Destination: BigQuery (analytics warehouse)
-Result: Real-time replication, no manual ETL
-text
+- Source: MySQL prod → Datastream → GCS staging → BigQuery external/federated o load incremental.
 
 ---
 
 ## Why BigQuery Changes Everything
 
-### Old Way (AWS-style)
-Extract from databases
+### Old Way (estilo AWS)
 
-S3 (data lake)
+- Extraer de bases → S3 (data lake) → EMR Spark (ETL) → Redshift (load) → Query → ML aparte.
+- Costo: infraestructura + clusters dedicados.
+- Latencia: horas en batch tradicionales.
 
-EMR Spark job (ETL)
+### New Way (GCP con BigQuery)
 
-Redshift (load)
-
-Query Redshift
-
-Build separate ML models
-Cost: $2000+/month
-Latency: Hours
-
-text
-
-### New Way (GCP BigQuery)
-Extract from databases
-
-Stream to BigQuery (or GCS)
-
-Query directly in BigQuery
-
-Train ML in BigQuery (BQML)
-Cost: $500-1000/month (pay-as-you-go)
-Latency: Seconds
-
-text
-
-**BigQuery = one system for everything (warehouse + ML + BI)**
+- Extraer/stream a BigQuery (o a GCS).
+- Query directo en BigQuery.
+- Entrenar modelos con BQML en el mismo warehouse.
+- Costo: pay-as-you-go por bytes escaneados o flat-rate; menor ops.
+- Latencia: segundos a minutos, especialmente con streaming y BI Engine.
 
 ---
 
 ## Real-World: E-commerce Analytics
 
-Scenario: Shopify store analysis
-Architecture:
-1. Shopify API → Cloud Functions
-2. Write to Pub/Sub
-3. Dataflow consumer (real-time transformation)
-4. Write to BigQuery
-5. Looker dashboards on BigQuery
-Step 1: Cloud Function (triggered by API)
+**Scenario:** Análisis de una tienda Shopify en tiempo real/light-batch.
+
+**Arquitectura:**
+
+1. Shopify API → Cloud Functions (pull/push events).
+2. Publicar eventos a Pub/Sub (topic orders).
+3. Dataflow (stream) consume, valida y enriquece.
+4. Sink en BigQuery (dataset ecommerce).
+5. Looker/Looker Studio sobre BigQuery para dashboards.
+
+**Step 1: Cloud Function (publisher)**
+
+```
 from google.cloud import pubsub_v1
-import functions_framework
+import functions_framework, json
 
-@functions_framework.http
-def process_order(request):
-order = request.get_json()
-
-text
 publisher = pubsub_v1.PublisherClient()
 topic_path = publisher.topic_path('my-project', 'orders')
 
-publisher.publish(topic_path, json.dumps(order).encode('utf-8'))
+@functions_framework.http
+def process_order(request):
+    order = request.get_json()
+    publisher.publish(topic_path, json.dumps(order).encode('utf-8'))
+    return 'Published'
+```
 
-return 'Published'
-Step 2: Dataflow job (streaming consumer)
+**Step 2: Dataflow job (streaming consumer)**
+
+```
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
+import json
+from datetime import datetime
 
 def enrich_order(order):
-# Add timestamp, validate, enrich
-order['processed_at'] = datetime.now()
-return order
+    order['processed_at'] = datetime.utcnow().isoformat()
+    return order
 
-with beam.Pipeline(runner='DataflowRunner', options=PipelineOptions()) as p:
-(p
-| 'Read from Pub/Sub' >> beam.io.gcp.pubsub.ReadFromPubSub(topic='projects/my-project/topics/orders')
-| 'Parse' >> beam.Map(lambda x: json.loads(x))
-| 'Enrich' >> beam.Map(enrich_order)
-| 'Write to BigQuery' >> beam.io.WriteToBigQuery('my-project:ecommerce.orders')
-)
+with beam.Pipeline(runner='DataflowRunner', options=PipelineOptions(streaming=True)) as p:
+    (
+        p
+        | 'Read from Pub/Sub' >> beam.io.gcp.pubsub.ReadFromPubSub(
+              topic='projects/my-project/topics/orders')
+        | 'Parse'  >> beam.Map(lambda b: json.loads(b))
+        | 'Enrich' >> beam.Map(enrich_order)
+        | 'Write'  >> beam.io.WriteToBigQuery(
+              'my-project:ecommerce.orders',
+              write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND)
+    )
+```
 
-Step 3: BigQuery queries
+**Step 3: BigQuery queries (reporting)**
+
+```
 SELECT
-DATE(processed_at) as date,
-COUNT(*) as total_orders,
-SUM(total_price) as revenue,
-AVG(total_price) as avg_order_value
-FROM my-project.ecommerce.orders
+  DATE(processed_at) AS date,
+  COUNT(*)          AS total_orders,
+  SUM(total_price)  AS revenue,
+  AVG(total_price)  AS avg_order_value
+FROM `my-project.ecommerce.orders`
 GROUP BY date
 ORDER BY date DESC;
-
-Cost: BigQuery ($100-200/month) + Dataflow ($50/month) = $150/month
-vs AWS EMR: $500-1000/month
-text
+```
 
 ---
 
 ## GCP vs AWS vs Azure
 
-| Feature | GCP | AWS | Azure |
-|---------|-----|-----|-------|
-| **Data Warehouse** | BigQuery | Redshift | Synapse |
-| **Ease** | Highest | Mid | Mid |
-| **Cost** | Low | Mid | Mid |
-| **ML Built-in** | Yes (BQML) | Limited | Limited |
-| **Serverless** | Yes (mostly) | Limited | Limited |
-| **SQL** | Standard | Proprietary | T-SQL |
-| **Best for** | Analytics/ML | Enterprise/Complex | Enterprise Microsoft |
+| Feature        | GCP          | AWS                | Azure                |
+| -------------- | ------------ | ------------------ | -------------------- |
+| Data Warehouse | BigQuery     | Redshift           | Synapse              |
+| Ease           | Highest      | Mid                | Mid                  |
+| Cost           | Low (pay/TB) | Mid                | Mid                  |
+| ML Built-in    | Yes (BQML)   | Limited            | Limited              |
+| Serverless     | Yes (mostly) | Mixed              | Mixed                |
+| SQL            | Standard     | Proprietary mix    | T-SQL                |
+| Best for       | Analytics/ML | Enterprise/Complex | Enterprise Microsoft |
 
 ---
 
 ## Errores Comunes en Entrevista
 
-- **Error**: "BigQuery es siempre más barato" → **Solución**: Depende. Flat rate puede ser más caro si queries small
-
-- **Error**: Pensando que BigQuery puede reemplazar OLTP (transactional) → **Solución**: BigQuery = OLAP (analytics), not transactional
-
-- **Error**: No usando BI Engine cache → **Solución**: BI Engine = 100x faster for BI queries, almost free
-
-- **Error**: Querying raw GCS files sin proyectos** → **Solución**: Load a BigQuery primero o usa federated queries (más caro)
+- “BigQuery siempre es más barato” → Depende: on-demand vs flat-rate; bad queries escanean más bytes y suben costo.
+- “BigQuery reemplaza OLTP” → BigQuery es OLAP; para transactional usa Cloud SQL/Spanner/Firestore.
+- No usar BI Engine → Pierdes latencia ultra-baja en dashboards; habilítalo cuando convenga.
+- Consultar raw files en GCS sin gobernanza → Prefiere particionar/clusterizar tablas en BigQuery o federated con criterio.
 
 ---
 
 ## Preguntas de Seguimiento
 
-1. **"¿Cuándo BigQuery vs Redshift?"**
-   - BigQuery: Easier, serverless, built-in ML
-   - Redshift: More control, established
+1. ¿Cuándo BigQuery vs Redshift?
 
-2. **"¿Pub/Sub vs Kafka?"**
-   - Pub/Sub: Managed, simpler, GCP-native
-   - Kafka: More flexible, larger ecosystem
+- BigQuery: serverless, pay-per-query, BQML, menos ops.
+- Redshift: más control de compute, tuning detallado, ecosistemas existentes en AWS.
 
-3. **"¿BQML vs custom ML?"**
-   - BQML: Quick, simple, good for standard models
-   - Custom: TensorFlow, more control
+2. ¿Pub/Sub vs Kafka?
 
-4. **"¿BigQuery pricing: on-demand vs flat-rate?"**
-   - On-demand: $6.25/TB, good for variable workloads
-   - Flat-rate: $2000/month, good for heavy users
+- Pub/Sub: fully managed, sencillo, GCP-native.
+- Kafka: más flexible, gran ecosistema; requiere más ops si self-managed.
+
+3. ¿BQML vs custom ML?
+
+- BQML: rápido para modelos estándar en SQL.
+- Custom: TensorFlow/Vertex AI para control avanzado y pipelines MLOps.
+
+4. ¿BigQuery pricing on-demand vs flat-rate?
+
+- On-demand: paga por TB escaneado; ideal workloads variables.
+- Flat-rate: costo fijo mensual; ideal heavy/estable con SLAs de costos.
 
 ---
 
 ## References
 
-- [BigQuery - Official Docs](https://cloud.google.com/bigquery/docs)
-- [Dataflow - Beam on GCP](https://cloud.google.com/dataflow)
-- [Cloud Storage - Object Storage](https://cloud.google.com/storage/docs)
-- [Pub/Sub - Messaging](https://cloud.google.com/pubsub/docs)
-- [BQML - ML in BigQuery](https://cloud.google.com/bigquery/docs/bqml-intro)
-
+1. [Data Engineering in the Cloud: Comparing AWS, Azure and Google Cloud Platform](https://www.geeksforgeeks.org/data-engineering/data-engineering-in-the-cloud-comparing-aws-azure-and-google-cloud-platform/)
+2. [Data Engineering in the Cloud: Comparing AWS, Azure and GCP](https://sunscrapers.com/blog/data-engineering-in-the-cloud-comparing-aws-azure-and-gcp/)
+3. [Which is better? GCP data engineering vs AWS data engineering](https://visualpathblogs.com/gcp-data-engineering/which-is-better-gcp-data-engineering-and-aws-data-engineering/)
+4. [AWS vs Azure vs GCP as Data Engineer](https://www.reddit.com/r/dataengineersindia/comments/1gmdd86/aws_vs_azure_vs_gcp_as_data_engineer/)
+5. [Cloud Comparison Guide for Data Engineers | LinkedIn Post by Pooja Jain](https://www.linkedin.com/posts/pooja-jain-898253106_cloud-comparison-guide-for-data-engineers-activity-7357379682721304576-X6HA)
+6. [AWS vs Azure vs GCP - Which cloud should you learn?](https://dataengineeracademy.com/module/aws-vs-azure-vs-gcp-which-cloud-should-you-learn/)
+7. [Google Cloud vs AWS](https://www.netcomlearning.com/blog/google-cloud-vs-aws)
+8. [AWS, Azure and GCP Service Comparison for Data Science and AI | Cheat Sheet](https://www.datacamp.com/cheat-sheet/aws-azure-and-gcp-service-comparison-for-data-science-and-ai)

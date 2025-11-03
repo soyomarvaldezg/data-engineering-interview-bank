@@ -1,338 +1,319 @@
 # Azure Data Stack para Data Engineering
 
-**Tags**: #cloud #azure #synapse #data-factory #blob-storage #real-interview  
+**Tags**: #cloud #azure #synapse #data-factory #blob-storage #event-hubs #purview #real-interview  
 **Empresas**: Microsoft, JPMorgan, Goldman Sachs, Enterprise (Fortune 500)  
 **Dificultad**: Mid  
-**Tiempo estimado**: 20 min  
+**Tiempo estimado**: 20 min
 
 ---
 
 ## TL;DR
 
-**Azure data stack**: Blob Storage (S3 equivalent) → Data Factory (managed ETL) → Synapse Analytics (warehouse). **Key advantage**: Enterprise integration (Microsoft Stack: Office, Teams, Active Directory). **Trade-off**: Powerful but complex, best for enterprise. Best for: Large corporations, Microsoft shops, strict governance.
+Azure data stack: **Blob Storage (ADLS Gen2, S3 equivalent)** → **Data Factory (managed ETL/orchestration)** → **Synapse Analytics (warehouse + Spark + SQL)**.  
+Ventaja clave: Integración enterprise con el ecosistema Microsoft (Azure AD, Power BI, Office, Teams, Purview) y fuerte postura de governance/compliance.  
+Trade-off: Muy potente pero más complejo; destaca en organizaciones grandes con requisitos de seguridad y gobierno estrictos.  
+Ideal para: Corporaciones, “Microsoft shops”, industrias reguladas con data governance first.
 
 ---
 
 ## Concepto Core
 
-- **Qué es**: Azure = Microsoft's cloud. Diferencia: empresa-oriented, security/compliance strong
-- **Por qué importa**: Growing in enterprises (50% Fortune 500 use Azure)
-- **Principio clave**: "Enterprise data platform" (governance, security first)
+- Qué es: Azure es la nube de Microsoft con enfoque enterprise, security/compliance y governance integrados desde el inicio.
+- Por qué importa: Amplia adopción en empresas grandes, integración nativa con Microsoft 365 y Azure AD.
+- Principio clave: “Enterprise data platform” con data governance, RBAC, private endpoints, y lineage como pilares.
 
 ---
 
 ## Arquitectura
 
+```
 ┌──────────────────────────────────────┐
-│ DATA SOURCES │
-│ ├─ SQL Server (on-prem) │
-│ ├─ Dynamics 365 │
-│ ├─ SharePoint │
-│ └─ External APIs │
+│ DATA SOURCES                        │
+│ ├─ SQL Server (on-prem)             │
+│ ├─ Dynamics 365                     │
+│ ├─ SharePoint                       │
+│ └─ External APIs                    │
 └───────────────┬──────────────────────┘
-│
-▼
+                │
+                ▼
 ┌──────────────────────────────────────┐
-│ AZURE INGESTION │
-│ ├─ Data Factory pipelines │
-│ ├─ Event Hubs (streaming) │
-│ ├─ Azure Data Share (partner data) │
-│ └─ Synapse Pipelines │
+│ AZURE INGESTION                     │
+│ ├─ Data Factory (pipelines)         │
+│ ├─ Event Hubs (streaming)           │
+│ ├─ Data Share (partner data)        │
+│ └─ Synapse Pipelines                │
 └───────────────┬──────────────────────┘
-│
-▼
+                │
+                ▼
 ┌──────────────────────────────────────┐
-│ AZURE DATA LAKE (ADLS) │
-│ ├─ Blob Storage (gen2) │
-│ ├─ Hierarchical namespace │
-│ └─ ACL security (granular) │
+│ AZURE DATA LAKE (ADLS Gen2)         │
+│ ├─ Blob Storage (hierarchical ns)   │
+│ ├─ Fine-grained ACLs                │
+│ └─ Lifecycle policies               │
 └───────────────┬──────────────────────┘
-│
-┌───────────┴───────────┐
-│ │
-▼ ▼
-┌─────────────┐ ┌──────────────┐
-│ Data Factory│ │ Synapse │
-│ (Managed │ │ Spark pools │
-│ ETL) │ │ (Spark/PySpark
-└──────┬──────┘ └──────┬───────┘
-│ │
-└────────┬───────────┘
-│
-▼
+                │
+       ┌────────┴───────────┐
+       │                    │
+       ▼                    ▼
+┌─────────────┐     ┌──────────────┐
+│ Data Factory│     │ Synapse      │
+│ (Managed ETL)     │ Spark pools  │
+└──────┬──────┘     └──────┬───────┘
+       │                    │
+       └────────┬───────────┘
+                │
+                ▼
 ┌──────────────────────────────────────┐
-│ SYNAPSE ANALYTICS (Warehouse) │
-│ ├─ SQL pools (MPP warehouse) │
-│ ├─ Serverless SQL pools │
-│ └─ Data Science (notebooks) │
+│ SYNAPSE ANALYTICS (Warehouse)        │
+│ ├─ Dedicated SQL pools (MPP)         │
+│ ├─ Serverless SQL pools              │
+│ └─ Notebooks/Data Science            │
 └───────────────┬──────────────────────┘
-│
-┌───────────┴───────────┐
-│ │
-▼ ▼
-┌──────────────┐ ┌──────────────┐
-│ Power BI │ │ Analysts │
-│ (MS native) │ │ SQL queries │
-└──────────────┘ └──────────────┘
-
-text
+                │
+       ┌────────┴───────────┐
+       │                    │
+       ▼                    ▼
+┌──────────────┐     ┌──────────────┐
+│ Power BI     │     │ Analysts     │
+│ (MS native)  │     │ SQL queries  │
+└──────────────┘     └──────────────┘
+```
 
 ---
 
 ## Key Services
 
-### 1. Azure Blob Storage (Data Lake Storage Gen2)
+### 1) Azure Blob Storage (ADLS Gen2)
 
-What: Object storage with hierarchical namespace
-Why: ACL security, integrates with Data Factory/Synapse
-Cost: Similar to AWS S3
+- What: Object storage con hierarchical namespace (directorios “reales”) y ACLs granulares para data lake.
+- Why: Integración estrecha con Data Factory, Synapse y Azure AD; seguridad y control a nivel enterprise.
+- Cons: Diseño de permisos puede ser más detallado/estricto; gobernanza requiere buenas prácticas.
 
-Pricing:
+**URI (DFS/ABFSS):**
 
-Storage: $0.018/GB/month (cheap)
+```
+abfss://<container>@<storageaccount>.dfs.core.windows.net/path/file
+```
 
-Transactions: $0.004 per 10k operations
+**Features:**
 
-Data transfer: $0.08/GB out (mid)
+- Hierarchical namespace (carpetas y operaciones a nivel de directorio).
+- ACLs finos por carpeta/archivo; integración con Azure AD (RBAC).
+- Lifecycle policies para archivar a Cool/Archive y optimizar costo.
 
-Architecture:
-abfss://container@storageaccount.dfs.core.windows.net/path/file
+---
 
-Features:
+### 2) Data Factory (Managed ETL / Orchestration)
 
-Hierarchical namespace (actual folders)
+- What: Orquestación visual de ETL/ELT con conectores a +100 fuentes; scheduling y triggers.
+- Why: Ideal para integraciones enterprise (SQL Server, SAP, Dynamics, etc.), mover/transformar datos sin gestionar infra.
+- Cons: Menos “code-first”; más “UI-first”. Para lógica compleja, conviene combinar con notebooks/Spark.
 
-ACL (granular permissions)
+**Estructura:**
 
-Lifecycle policies (archive)
-
-Benefit vs AWS S3:
-
-Real folders (not just key prefixes)
-
-Better for data lake (hierarchical)
-
-Cheaper for enterprise
-
-text
-
-### 2. Data Factory (Managed ETL)
-
-What: ETL orchestration (like AWS Glue or Airflow)
-Why: Visual pipelines, connectors to 100+ sources, schedule/trigger
-Cons: Less code control, more UI clicking
-
-Architecture:
+```
 Pipeline
-├─ Activities (Copy data, Run notebooks, SQL scripts)
-├─ Triggers (Schedule, Event-based, Manual)
-└─ Linked Services (Connections to Blob, SQL, etc)
+├─ Activities (Copy, Notebooks, SQL scripts)
+├─ Triggers (Schedule, Event, Manual)
+└─ Linked Services (conexiones a Blob, SQL, etc.)
+```
 
-Example: Copy from SQL Server to Data Lake
-Pipeline: "DailyETL"
-├─ Activity 1: Copy from SQL Server → Blob Storage
-│ ├─ Source: SQL Server (on-prem)
-│ ├─ Sink: Blob Storage (ADLS)
-│ └─ Schedule: Daily 1am
-├─ Activity 2: Run Spark notebook (transform)
-│ └─ Path: /notebooks/transform.ipynb
-└─ Activity 3: Run SQL stored procedure (load to Synapse)
-└─ SQL: EXEC LoadToSynapse
+**Ejemplo (copy + transform + load):**
 
-Pricing: $1 per pipeline run (for first 50k runs free)
+- Activity 1: Copy SQL Server (on-prem) → ADLS
+- Activity 2: Run Synapse Spark notebook (transform)
+- Activity 3: Execute SQL en Synapse (load final)
 
-text
+---
 
-### 3. Synapse Analytics
+### 3) Synapse Analytics
 
-What: Unified analytics platform (warehouse + Spark + SQL)
-Why: One system for batch + streaming + data science
-Cons: Complex, many moving parts
+- What: Plataforma unificada de analytics: Dedicated SQL pools (MPP), Serverless SQL, Spark pools, pipelines, notebooks.
+- Why: Un solo entorno para batch/stream, SQL analytics, y notebooks; integración nativa con Power BI y ADLS.
+- Cons: Complejidad; muchos componentes y decisiones de arquitectura.
 
-Components:
-a) SQL Pools (MPP warehouse, like Redshift)
+**Componentes:**
 
-Provisioned: You choose DWU (Data Warehouse Units)
+- Dedicated SQL pools (MPP): warehouse provisionado con DWUs.
+- Serverless SQL: pay-as-you-query sobre data lake.
+- Spark pools: PySpark/Scala para transformaciones.
+- Pipelines: orquestación integrada (similares a Data Factory).
+- Data Wrangler/Studio: herramientas visuales para preparación.
 
-Serverless: Pay-as-you-query (cheaper for ad-hoc)
+**Ejemplo: Query en Dedicated SQL Pool**
 
-b) Spark Pools (Managed Spark)
-
-Run Spark jobs without EMR setup
-
-Language: PySpark, Scala, SQL
-
-c) Pipelines (Orchestration, like Data Factory)
-
-Integrated in Synapse Studio
-
-d) Data Wrangler (Visual data prep)
-
-Clean/transform data without code
-
-Example: Query Synapse SQL Pool
+```
 SELECT
-customer_id,
-SUM(amount) as total,
-COUNT(*) as num_orders
+  customer_id,
+  SUM(amount) AS total,
+  COUNT(*)    AS num_orders
 FROM fact_sales
-WHERE date >= '2024-01-01'
+WHERE [date] >= '2024-01-01'
 GROUP BY customer_id
 ORDER BY total DESC;
+```
 
-Example: Run Spark in Synapse
+**Ejemplo: Spark en Synapse**
+
+```
+from pyspark.sql import functions as F
+
 df = spark.read.parquet("abfss://data@lake.dfs.core.windows.net/sales/")
-transformed = df.filter(df.amount > 0).groupBy("customer_id").agg(F.sum("amount"))
-transformed.write.parquet("abfss://data@lake.dfs.core.windows.net/processed/")
+transformed = (
+    df.filter(F.col("amount") > 0)
+      .groupBy("customer_id")
+      .agg(F.sum("amount").alias("total_amount"))
+)
+transformed.write.mode("overwrite").parquet(
+    "abfss://data@lake.dfs.core.windows.net/processed/sales_daily/"
+)
+```
 
-Pricing:
+---
 
-SQL Pool: $1.71/DWU-hour (100 DWU = $171/hour)
+### 4) Event Hubs (Streaming)
 
-Spark Pool: $0.49/vCore-hour (similar to GCP Dataflow)
+- What: Servicio de ingesta de eventos de alta escala (alternativa a Kafka fully managed).
+- Why: Integración con Spark, Functions y Synapse; útil para telemetría, IoT y eventos financieros.
+- Cons: Diferencias de API y operación frente a Kafka tradicional; patrones de consumo propios.
 
-text
+**Patrón:**
 
-### 4. Event Hubs (Streaming)
+```
+Producers → Event Hubs → Consumers (Spark/Functions) → ADLS/Synapse
+```
 
-What: Kafka alternative, fully managed
-Why: Integrates with Synapse, auto-scales
-Cons: Kafka ecosystem smaller
+---
 
-Use case: Real-time data ingestion
-Event Source → Event Hubs → Consumer (Spark/Function) → Synapse
+### 5) Microsoft Purview (Governance)
 
-Pricing: $0.015 per million events
+- What: Data governance nativo (catalog, lineage, clasificación, data policy).
+- Why: Lineage de extremo a extremo, data catalog central, etiquetas de sensibilidad, cumplimiento regulatorio.
+- Cons: Requiere configuración y gobierno operativo; conviene definir ownership/roles desde el inicio.
 
-text
+**Capacidades:**
+
+- Data Map, Data Catalog, Data Estate Insights, Data Policy, Data Sharing.
+- Integración con Power BI, SQL Server, ADLS, Synapse, y fuentes multi-cloud.
 
 ---
 
 ## Why Azure for Enterprise
 
-### Active Directory Integration
-Users in Azure AD → Auto-authorized in Data Lake/Synapse
-No need separate identity management
-GDPR/Compliance: Audit trails built-in
-text
+### Azure AD Integration
+
+- Identidad centralizada y RBAC; usuarios/grupos de Azure AD se reflejan en permisos sobre ADLS/Synapse.
+- Menos fricción en provisión de accesos, auditorías y revocación.
 
 ### Microsoft Stack Integration
-Power BI → Synapse (same admin console)
-Teams → Data Factory alerts (notifications in Teams)
-Dynamics 365 → Real-time sync to Synapse
-Office 365 → Data governance (sensitivity labels)
 
-text
+- Power BI con Synapse/ADLS de forma nativa; Single Sign-On y governance alineado.
+- Teams para alertas/notificaciones de pipelines; Dynamics 365 y M365 como fuentes frecuentes.
 
 ### Governance & Compliance
-Purview: Data lineage, cataloging (what changed, who accessed)
 
-Security: VNet integration, private endpoints
-
-Compliance: Built-in HIPAA, PCI, GDPR templates
-
-text
+- Azure Policy, Blueprints y Purview para enforce/audit de políticas y cumplimiento (ISO, GDPR, HIPAA, PCI).
+- VNet integration, Private Endpoints y cifrado estándar para reducir superficie de ataque.
 
 ---
 
 ## Real-World: Financial Company
 
-Scenario: JPMorgan wants to replicate trades to analytics
-Architecture:
-1. SQL Server (on-prem) → Data Factory
-2. Incremental load to Blob Storage (ADLS)
-3. Synapse Spark (transform)
-4. Synapse SQL Pool (warehouse)
-5. Power BI (trading dashboards)
-Step 1: Data Factory Pipeline
-Pipeline: "DailyTradeETL"
-├─ Linked Service: SQL Server (on-prem, connection string)
-├─ Activity: Copy from SQL Server
-│ └─ Query: SELECT * FROM trades WHERE date = '2024-01-15'
-│ └─ Sink: Blob/ADLS
-├─ Activity: Run Spark notebook
-│ └─ Transform: Validate, enrich, aggregate
-└─ Activity: Execute SQL script (Synapse)
-└─ COPY INTO fact_trades FROM ADLS
+**Scenario:** Réplica de operaciones (trades) a plataforma analítica con controles de compliance.
 
-Step 2: Synapse Spark notebook (transform)
-df = spark.read.parquet("abfss://data@lake.dfs.core.windows.net/raw/trades/2024-01-15/")
-df_clean = df.filter(df.amount > 0).dropna()
+**Arquitectura (resumen):**
+
+1. SQL Server (on-prem) → Data Factory (incremental).
+2. ADLS (zona raw/bronze) con ACLs y carpetas jerárquicas.
+3. Synapse Spark: validación, enrichment y agregaciones (silver/gold).
+4. Synapse Dedicated SQL Pool: modelado relacional/estrella para BI.
+5. Power BI: dashboards auditables con etiquetas de sensibilidad.
+
+**Synapse Spark (transform ejemplo)**
+
+```
+from pyspark.sql.functions import col
+
+df = spark.read.parquet(
+    "abfss://data@lake.dfs.core.windows.net/raw/trades/2024-01-15/"
+)
+df_clean = df.filter(col("amount") > 0).dropna()
 df_enriched = df_clean.withColumn("trade_value", col("quantity") * col("price"))
-df_enriched.write.parquet("abfss://data@lake.dfs.core.windows.net/processed/trades/2024-01-15/")
+df_enriched.write.mode("overwrite").parquet(
+    "abfss://data@lake.dfs.core.windows.net/processed/trades/2024-01-15/"
+)
+```
 
-Step 3: Synapse SQL Pool (reporting)
+**Synapse SQL (reporting ejemplo)**
+
+```
 SELECT
-trader_id,
-SUM(trade_value) as daily_volume,
-COUNT(*) as num_trades,
-AVG(trade_value) as avg_trade
+  trader_id,
+  SUM(trade_value) AS daily_volume,
+  COUNT(*)         AS num_trades,
+  AVG(trade_value) AS avg_trade
 FROM fact_trades
-WHERE date = '2024-01-15'
+WHERE [date] = '2024-01-15'
 GROUP BY trader_id;
-
-Step 4: Power BI (connected to Synapse)
-Dashboards auto-refresh, compliance audit trails
-Cost:
-Data Factory: $500/month
-Synapse SQL: $1500/month (100 DWU)
-Synapse Spark: $200/month
-Purview: $200/month
-Total: ~$2400/month
-text
+```
 
 ---
 
 ## Azure vs AWS vs GCP
 
-| Feature | Azure | AWS | GCP |
-|---------|-------|-----|-----|
-| **Warehouse** | Synapse SQL | Redshift | BigQuery |
-| **Managed ETL** | Data Factory | Glue | Dataflow |
-| **Enterprise** | Best | Good | Developing |
-| **Microsoft Integration** | Native | Limited | Limited |
-| **Ease** | Mid | Low-Mid | High |
-| **Cost** | Mid | Mid | Low |
-| **Compliance** | Strong | Strong | Developing |
+| Feature                   | Azure            | AWS      | GCP          |
+| ------------------------- | ---------------- | -------- | ------------ |
+| Warehouse                 | Synapse SQL      | Redshift | BigQuery     |
+| Managed ETL/Orchestration | Data Factory     | Glue     | Dataflow     |
+| Enterprise Integration    | Best (Microsoft) | Good     | Developing   |
+| Governance/Compliance     | Strong (Purview) | Strong   | Improving    |
+| Ease (operar)             | Mid              | Mid-Low  | High         |
+| Cost (típico)             | Mid              | Mid      | Low (pay/TB) |
 
 ---
 
 ## Errores Comunes en Entrevista
 
-- **Error**: "Synapse es más expensive" → **Solución**: Comparable, but better value for enterprise
-
-- **Error**: Usando Synapse Serverless para everything → **Solución**: Serverless más caro si queries big, use provisioned para frequent
-
-- **Error**: No integrating with Power BI → **Solución**: Power BI + Synapse = seamless (main Azure advantage)
-
-- **Error**: Forgetting Purview for compliance** → **Solución**: Enterprise needs data lineage/governance
+- “Synapse es siempre más caro”: Depende del patrón; workloads frecuentes y estables aprovechan Dedicated SQL, ad-hoc va mejor en Serverless.
+- “Serverless para todo”: En cargas pesadas y recurrentes puede salir más caro; evalúa Dedicated SQL con DWUs adecuados.
+- Ignorar Power BI/Purview: Perderás ventajas clave de integración y governance; son diferenciales en Azure.
+- Permisos al azar en ADLS: Define RBAC/ACLs consistentes, naming conventions y zones (raw/silver/gold) desde el diseño.
 
 ---
 
 ## Preguntas de Seguimiento
 
-1. **"¿Cuándo Synapse SQL vs Serverless?"**
-   - SQL Pool: Frequent queries, predictable workload
-   - Serverless: Ad-hoc, variable queries
+1. ¿Cuándo Synapse Dedicated SQL vs Serverless?
 
-2. **"¿Data Factory vs Synapse Pipelines?"**
-   - Data Factory: More matured, more connectors
-   - Synapse Pipelines: Newer, integrated ecosystem
+- Dedicated: cargas frecuentes y predecibles, SLAs de performance, modelos estrella.
+- Serverless: exploratorio, ad-hoc, picos esporádicos, data lake-first.
 
-3. **"¿Purview vs Collibra?"**
-   - Purview: Native Azure, governance
-   - Collibra: Multi-cloud, mature
+2. ¿Data Factory vs Synapse Pipelines?
 
-4. **"¿Migrando from on-prem SQL Server?"**
-   - Data Factory + Synapse = smooth migration path
-   - Azure Database Migration Service (DMS) helps
+- Data Factory: producto maduro, amplio set de conectores; ideal si no usas Synapse Studio.
+- Synapse Pipelines: dentro de Synapse Studio; buena experiencia si ya concentras tu trabajo en Synapse.
+
+3. ¿Purview vs Collibra?
+
+- Purview: nativo Azure, excelente integración con el stack MS y costo/operación menores en Azure-first.
+- Collibra: multi-cloud/agnóstico, robusto para organizaciones heterogéneas.
+
+4. ¿Migración desde SQL Server on-prem?
+
+- Data Factory (self-hosted IR) + Synapse; apoyarse en Azure Database Migration Service para lift-and-shift o modernización.
 
 ---
 
-## References
+## Referencias
 
-- [Azure Synapse - Official Docs](https://docs.microsoft.com/en-us/azure/synapse-analytics/)
-- [Data Factory - ETL Service](https://docs.microsoft.com/en-us/azure/data-factory/)
-- [Azure Data Lake - Storage](https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction)
-- [Purview - Data Governance](https://docs.microsoft.com/en-us/azure/purview/)
-
+1.  Azure Synapse Analytics (documentación oficial) - 1 https://azure.microsoft.
+    com/en-us/resources/cloud-computing-dictionary/what-is-a-data-governance
+2.  Azure Data Factory (documentación oficial) - 2 https://azure.microsoft.com/en-us/solutions/governance
+3.  Azure Data Lake Storage Gen2 (introducción) - 3 https://www.youtube.com/watch?v=jH37kLkWCRk
+4.  Microsoft Purview (documentación oficial) - 4 https://learn.microsoft.
+    com/en-us/azure/architecture/guide/management-governance/management-governance-start-here
+5.  Azure Governance (Azure Policy, Blueprints, RBAC) - 5 https://atlan.com/azure-data-governance-benefits/
+6.  6 https://dynatechconsultancy.com/blog/microsoft-azure-is-changing-enterprise-data-governance
+7.  7 https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/scenarios/cloud-scale-analytics/govern
+8.  8 https://www.informatica.com/lp/best-practices-azure-data-governance_4237.html
+9.  9 https://www.atmosera.com/blog/data-governance-basics/
