@@ -147,6 +147,7 @@ Cada pregunta sigue este patrón:
 
 - [Omar Valdez](https://www.tiktok.com/@soyomarvaldezg)
 - [Ian Saura](https://www.tiktok.com/@iansaura)
+- [Daniel Portugal](https://www.tiktok.com/@danielportugalr)
 
 ### Blogs
 
