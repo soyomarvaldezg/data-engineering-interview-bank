@@ -113,7 +113,7 @@ Cada pregunta sigue este patrón:
 
 ### 🧭 Cursos / Roadmaps
 
-- [Dataneo x Bruno Masciarelli](https://www.dataneo.com/)
+- [Dataneo x Bruno Masciarelli](https://www.dateneo.com/)
 - [Data Engineer Specialist x Daniel Santos](https://datahackersacademy.com/workshop/data-engineer-specialist#inicio)
 - [Data Engineering Roadmap x Nataya Flores](https://github.com/natayadev/dataengineering-roadmap?tab=readme-ov-file)
 - [Data Engineering Roadmap x roadmap.sh](https://roadmap.sh/data-engineer)
