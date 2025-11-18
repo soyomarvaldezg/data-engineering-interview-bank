@@ -102,6 +102,7 @@ Cada pregunta sigue este patrón:
 - [Data Wizards](https://linkedin.com/company/data-wizard-club)
 - [Nataya Flores](https://www.linkedin.com/in/natayadev/)
 - [Flavio Cesar Sandoval](https://www.linkedin.com/in/flaviocesarsandoval/)
+- [CodinEric](https://www.linkedin.com/in/eric-rishmuller/)
 
 ### 🐦 X / Twitter Profiles
 
