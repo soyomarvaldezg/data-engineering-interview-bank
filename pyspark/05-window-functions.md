@@ -1,9 +1,6 @@
 # Window Functions en PySpark
 
-**Tags**: #pyspark #window-functions #ranking #real-interview  
-**Empresas**: Amazon, Google, Meta, Stripe  
-**Dificultad**: Mid  
-**Tiempo estimado**: 20 min  
+**Tags**: #pyspark #window-functions #ranking #real-interview
 
 ---
 
@@ -16,7 +13,7 @@ Window functions en Spark = window functions en SQL pero código Python. Usa `Wi
 ## Concepto Core
 
 - **Qué es**: Window function calcula valor para cada fila basado en "ventana" de filas (grupo + orden)
-- **Por qué importa**: Fundamental en transformaciones. Ranking, running totals, lead/lag son muy comunes. Demuestra dominio de Spark
+- **Por qué importa**: Fundamental en transformaciones. Ranking, sumas acumulativas, lead/lag son muy comunes. Demuestra dominio de Spark
 - **Principio clave**: Window = PARTITION BY + ORDER BY. Aplica función dentro de cada ventana
 
 ---
@@ -29,7 +26,7 @@ Window functions en Spark = window functions en SQL pero código Python. Usa `Wi
 
 ## Cómo explicarlo en entrevista
 
-**Paso 1**: "Window functions hacen cálculos "sobre ventanas" de filas, no solo colapsando grupos"
+**Paso 1**: "Window functions hacen cálculos 'sobre ventanas' de filas, no solo colapsando grupos"
 
 **Paso 2**: "Defino ventana con `Window.partitionBy(col).orderBy(col)` — es como GROUP BY + ORDER BY"
 
@@ -43,20 +40,20 @@ Window functions en Spark = window functions en SQL pero código Python. Usa `Wi
 
 ### Datos: Sales por empleado
 
-employee_id | name | department | amount | date
-1 | Alice | Sales | 1000 | 2024-01-01
-2 | Bob | Sales | 1500 | 2024-01-02
-3 | Charlie | IT | 2000 | 2024-01-03
-1 | Alice | Sales | 800 | 2024-01-04
-4 | David | IT | 2500 | 2024-01-05
-2 | Bob | Sales | 900 | 2024-01-06
-
-text
+| id_empleado | nombre  | departamento | monto | fecha      |
+| ----------- | ------- | ------------ | ----- | ---------- |
+| 1           | Alice   | Ventas       | 1000  | 2024-01-01 |
+| 2           | Bob     | Ventas       | 1500  | 2024-01-02 |
+| 3           | Charlie | TI           | 2000  | 2024-01-03 |
+| 1           | Alice   | Ventas       | 800   | 2024-01-04 |
+| 4           | David   | TI           | 2500  | 2024-01-05 |
+| 2           | Bob     | Ventas       | 900   | 2024-01-06 |
 
 ---
 
 ### Problema 1: Ranking Dentro de Cada Departamento
 
+```python
 from pyspark.sql import Window
 from pyspark.sql.functions import row_number, rank, dense_rank, col
 
@@ -64,202 +61,196 @@ spark = SparkSession.builder.appName("Window Functions").getOrCreate()
 
 sales = spark.read.parquet("sales.parquet")
 
-Define ventana: particiona por department, ordena por amount (descendente)
-window = Window.partitionBy("department").orderBy(col("amount").desc())
+# Define la ventana: particiona por department, ordena por amount (descendente)
+window = Window.partitionBy("departamento").orderBy(col("monto").desc())
 
-Aplica ranking dentro de cada ventana
+# Aplica ranking dentro de cada ventana
 result = (
-sales
-.withColumn("rank_in_dept", rank().over(window))
-.withColumn("dense_rank_in_dept", dense_rank().over(window))
-.withColumn("row_number_in_dept", row_number().over(window))
-.select("employee_id", "name", "department", "amount", "rank_in_dept", "dense_rank_in_dept", "row_number_in_dept")
+    sales
+    .withColumn("rank_en_dpto", rank().over(window))
+    .withColumn("dense_rank_en_dpto", dense_rank().over(window))
+    .withColumn("row_number_en_dpto", row_number().over(window))
+    .select("id_empleado", "nombre", "departamento", "monto", "rank_en_dpto", "dense_rank_en_dpto", "row_number_en_dpto")
 )
 
 result.show()
-
-text
+```
 
 **Resultado:**
-employee_id | name | department | amount | rank_in_dept | dense_rank_in_dept | row_number_in_dept
-4 | David | IT | 2500 | 1 | 1 | 1
-3 | Charlie | IT | 2000 | 2 | 2 | 2
-2 | Bob | Sales | 1500 | 1 | 1 | 1
-1 | Alice | Sales | 1000 | 2 | 2 | 2
-2 | Bob | Sales | 900 | 3 | 3 | 3
-1 | Alice | Sales | 800 | 4 | 4 | 4
-
-text
+id_empleado | nombre | departamento | monto | rank_en_dpto | dense_rank_en_dpto | row_number_en_dpto
+---|---|---|---|---|---|---
+4 | David | TI | 2500 | 1 | 1 | 1
+3 | Charlie | TI | 2000 | 2 | 2 | 2
+2 | Bob | Ventas | 1500 | 1 | 1 | 1
+1 | Alice | Ventas | 1000 | 2 | 2 | 2
+2 | Bob | Ventas | 900 | 3 | 3 | 3
+1 | Alice | Ventas | 800 | 4 | 4 | 4
 
 ---
 
 ### Problema 2: Running Total (Suma Acumulativa)
 
-Window: particiona por employee, ordena cronológicamente
-window = Window.partitionBy("employee_id").orderBy("date")
+```python
+# Window: particiona por employee, ordena cronológicamente
+window = Window.partitionBy("id_empleado").orderBy("fecha")
 
 result = (
-sales
-.withColumn("running_total", sum("amount").over(window))
-.select("employee_id", "name", "date", "amount", "running_total")
+    sales
+    .withColumn("total_acumulado", sum("monto").over(window))
+    .select("id_empleado", "nombre", "fecha", "monto", "total_acumulado")
 )
 
 result.show()
-
-text
+```
 
 **Resultado:**
-employee_id | name | date | amount | running_total
+id_empleado | nombre | fecha | monto | total_acumulado
+---|---|---|---|---
 1 | Alice | 2024-01-01 | 1000 | 1000
 1 | Alice | 2024-01-04 | 800 | 1800
 2 | Bob | 2024-01-02 | 1500 | 1500
 2 | Bob | 2024-01-06 | 900 | 2400
 
-text
-
 ---
 
 ### Problema 3: LAG y LEAD (Fila Anterior/Siguiente)
 
-LAG: valor de fila anterior
-LEAD: valor de fila siguiente
-window = Window.partitionBy("employee_id").orderBy("date")
+```python
+# LAG: valor de fila anterior
+# LEAD: valor de fila siguiente
+window = Window.partitionBy("id_empleado").orderBy("fecha")
 
 result = (
-sales
-.withColumn("prev_amount", lag("amount").over(window))
-.withColumn("next_amount", lead("amount").over(window))
-.withColumn("amount_diff", col("amount") - col("prev_amount"))
-.select("employee_id", "date", "amount", "prev_amount", "next_amount", "amount_diff")
+    sales
+    .withColumn("monto_anterior", lag("monto").over(window))
+    .withColumn("monto_siguiente", lead("monto").over(window))
+    .withColumn("diferencia_monto", col("monto") - col("monto_anterior"))
+    .select("id_empleado", "fecha", "monto", "monto_anterior", "monto_siguiente", "diferencia_monto")
 )
 
 result.show()
-
-text
+```
 
 **Resultado:**
-employee_id | date | amount | prev_amount | next_amount | amount_diff
+id_empleado | fecha | monto | monto_anterior | monto_siguiente | diferencia_monto
+---|---|---|---|---|---
 1 | 2024-01-01 | 1000 | NULL | 800 | NULL
 1 | 2024-01-04 | 800 | 1000 | NULL | -200
 2 | 2024-01-02 | 1500 | NULL | 900 | NULL
 2 | 2024-01-06 | 900 | 1500 | NULL | -600
 
-text
-
 ---
 
 ### Problema 4: Window con ROWS (Ventanas Específicas)
 
-Window ROWS: especifica rango (últimas 2 filas, etc.)
-UNBOUNDED PRECEDING: desde inicio
-CURRENT ROW: fila actual
-n FOLLOWING: n filas después
-Última suma de 2 filas (incluida actual)
+```python
+# Window ROWS: especifica rango (últimas 2 filas, etc.)
+# UNBOUNDED PRECEDING: desde inicio
+# CURRENT ROW: fila actual
+# n FOLLOWING: n filas después
+# Última suma de 2 filas (incluida actual)
 window_2rows = (
-Window
-.partitionBy("employee_id")
-.orderBy("date")
-.rowsBetween(-1, 0) # 1 fila anterior + actual
+    Window
+    .partitionBy("id_empleado")
+    .orderBy("fecha")
+    .rowsBetween(-1, 0) # 1 fila anterior + actual
 )
 
 result = (
-sales
-.withColumn("sum_last_2", sum("amount").over(window_2rows))
-.select("employee_id", "date", "amount", "sum_last_2")
+    sales
+    .withColumn("suma_ultimas_2", sum("monto").over(window_2rows))
+    .select("id_empleado", "fecha", "monto", "suma_ultimas_2")
 )
 
 result.show()
-
-text
+```
 
 **Resultado:**
-employee_id | date | amount | sum_last_2
+id_empleado | fecha | monto | suma_ultimas_2
+---|---|---|---
 1 | 2024-01-01 | 1000 | 1000 (solo actual, no hay anterior)
 1 | 2024-01-04 | 800 | 1800 (1000 + 800)
 2 | 2024-01-02 | 1500 | 1500 (solo actual)
 2 | 2024-01-06 | 900 | 2400 (1500 + 900)
 
-text
-
 ---
 
 ### Problema 5: Top N por Grupo (Patrón Común)
 
-Ranking + Filter = Top N por grupo
-window = Window.partitionBy("department").orderBy(col("amount").desc())
+```python
+# Ranking + Filter = Top N por grupo
+window = Window.partitionBy("departamento").orderBy(col("monto").desc())
 
 result = (
-sales
-.withColumn("rank", rank().over(window))
-.filter(col("rank") <= 2) # Top 2 per department
-.select("employee_id", "name", "department", "amount", "rank")
+    sales
+    .withColumn("rank", rank().over(window))
+    .filter(col("rank") <= 2) # Top 2 por departamento
+    .select("id_empleado", "nombre", "departamento", "monto", "rank")
 )
 
 result.show()
-
-text
+```
 
 **Resultado:**
-employee_id | name | department | amount | rank
-4 | David | IT | 2500 | 1
-3 | Charlie | IT | 2000 | 2
-2 | Bob | Sales | 1500 | 1
-1 | Alice | Sales | 1000 | 2
-
-text
+id_empleado | nombre | departamento | monto | rank
+---|---|---|---|---
+4 | David | TI | 2500 | 1
+3 | Charlie | TI | 2000 | 2
+2 | Bob | Ventas | 1500 | 1
+1 | Alice | Ventas | 1000 | 2
 
 ---
 
 ## Window Functions Comunes
 
-| Función | Uso | Ejemplo |
-|---------|-----|---------|
-| `row_number()` | Número secuencial | 1, 2, 3, 4 |
-| `rank()` | Rank con saltos | 1, 2, 2, 4 |
-| `dense_rank()` | Rank sin saltos | 1, 2, 2, 3 |
-| `lag(col, offset)` | Fila anterior | Valor de -1 fila |
-| `lead(col, offset)` | Fila siguiente | Valor de +1 fila |
-| `sum(col).over()` | Suma acumulativa | Suma hasta fila actual |
-| `avg(col).over()` | Promedio ventana | Promedio en ventana |
-| `max(col).over()` | Máximo ventana | Máximo en ventana |
-| `min(col).over()` | Mínimo ventana | Mínimo en ventana |
-| `count(col).over()` | Contar ventana | Cuántas filas en ventana |
-| `first(col).over()` | Primer valor | Valor de primera fila |
-| `last(col).over()` | Último valor | Valor de última fila |
+| Función             | Uso               | Ejemplo                  |
+| ------------------- | ----------------- | ------------------------ |
+| `row_number()`      | Número secuencial | 1, 2, 3, 4               |
+| `rank()`            | Rank con saltos   | 1, 2, 2, 4               |
+| `dense_rank()`      | Rank sin saltos   | 1, 2, 2, 3               |
+| `lag(col, offset)`  | Fila anterior     | Valor de -1 fila         |
+| `lead(col, offset)` | Fila siguiente    | Valor de +1 fila         |
+| `sum(col).over()`   | Suma acumulativa  | Suma hasta fila actual   |
+| `avg(col).over()`   | Promedio ventana  | Promedio en ventana      |
+| `max(col).over()`   | Máximo ventana    | Máximo en ventana        |
+| `min(col).over()`   | Mínimo ventana    | Mínimo en ventana        |
+| `count(col).over()` | Contar ventana    | Cuántas filas en ventana |
+| `first(col).over()` | Primer valor      | Valor de primera fila    |
+| `last(col).over()`  | Último valor      | Valor de última fila     |
 
 ---
 
 ## Window Specifications
 
-Ventana básica: todo el dataset, sin partición
-window_all = Window.orderBy("date")
+```python
+# Ventana básica: todo el dataset, sin partición
+window_all = Window.orderBy("fecha")
 
-Partición única: grupo + orden
-window_dept = Window.partitionBy("department").orderBy(col("amount").desc())
+# Partición única: grupo + orden
+window_dept = Window.partitionBy("departamento").orderBy(col("monto").desc())
 
-Múltiples particiones: grupo por 2+ columnas
-window_multi = Window.partitionBy("department", "region").orderBy("date")
+# Múltiples particiones: grupo por 2+ columnas
+window_multi = Window.partitionBy("departamento", "region").orderBy("fecha")
 
-Sin orden: solo partición
-window_no_order = Window.partitionBy("department")
+# Sin orden: solo partición
+window_no_order = Window.partitionBy("departamento")
 
-ROWS specification: cuántas filas antes/después
+# ROWS specification: cuántas filas antes/después
 window_rows = (
-Window
-.partitionBy("department")
-.orderBy("date")
-.rowsBetween(-2, 1) # 2 filas antes + actual + 1 fila después
+    Window
+    .partitionBy("departamento")
+    .orderBy("fecha")
+    .rowsBetween(-2, 1) # 2 filas antes + actual + 1 fila después
 )
 
-RANGE specification: por valor, no filas
+# RANGE specification: por valor, no filas
 window_range = (
-Window
-.partitionBy("department")
-.orderBy("amount")
-.rangeBetween(-100, 100) # Rango ±100 de amount actual
+    Window
+    .partitionBy("departamento")
+    .orderBy("monto")
+    .rangeBetween(-100, 100) # Rango ±100 de monto actual
 )
-
-text
+```
 
 ---
 
@@ -282,7 +273,7 @@ text
    - `rangeBetween`: Rango de valores (valores dentro de rango)
 
 2. **"¿Cómo haces running total por mes?"**
-   - Particiona por mes: `Window.partitionBy(month()).orderBy(date)`
+   - Particiona por mes: `Window.partitionBy(month()).orderBy(fecha)`
    - Reset automático cada mes
 
 3. **"¿Puedes aplicar múltiples window functions?"**
@@ -296,28 +287,28 @@ text
 
 ## Real-World: Customer Lifetime Value
 
-Cálculo: última compra + total gasto + ranking por valor
-window_customer = Window.partitionBy("customer_id").orderBy(col("date").desc())
-window_all = Window.orderBy(col("total_spent").desc())
+```python
+# Cálculo: última compra + total gasto + ranking por valor
+window_customer = Window.partitionBy("id_cliente").orderBy(col("fecha").desc())
+window_all = Window.orderBy(col("total_gastado").desc())
 
 result = (
-sales
-.groupBy("customer_id")
-.agg(
-sum("amount").alias("total_spent"),
-max("date").alias("last_purchase"),
-count("*").alias("num_purchases")
-)
-.withColumn("days_since_purchase",
-datediff(current_date(), col("last_purchase")))
-.withColumn("customer_rank", rank().over(window_all))
-.filter(col("customer_rank") <= 100)
-.orderBy("customer_rank")
+    sales
+    .groupBy("id_cliente")
+    .agg(
+        sum("monto").alias("total_gastado"),
+        max("fecha").alias("ultima_compra"),
+        count("*").alias("num_compras")
+    )
+    .withColumn("dias_desde_ultima_compra",
+                 datediff(current_date(), col("ultima_compra")))
+    .withColumn("rank_cliente", rank().over(window_all))
+    .filter(col("rank_cliente") <= 100)
+    .orderBy("rank_cliente")
 )
 
 result.show()
-
-text
+```
 
 ---
 
@@ -325,5 +316,3 @@ text
 
 - [Window Functions - PySpark Docs](https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/functions.html#window-functions)
 - [Window Class - API](https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/window.html)
-- [Window Functions Guide - Databricks](https://docs.databricks.com/en/spark/latest/spark-sql/window-functions.html)
-

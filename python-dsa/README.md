@@ -3,29 +3,31 @@
 ## ¿Por qué Python/DSA?
 
 Data engineers escriben código. DSA no es "LeetCode obsession", sino:
-- **Strings**: Parsing datos, regex
+
+- **Strings**: Parsing de datos, regex
 - **Arrays/Lists**: Manipulación de colecciones
 - **Generators**: Memory efficiency (crucial en big data)
 - **Decorators**: Clean code, logging, caching
 - **Context Managers**: Resource management
 
-## Temas Cubiertos
+## Temas cubiertos
 
-1. **Strings & Text Processing** — Parsing, regex, cleaning
-2. **Arrays & Collections** — Lists, tuples, sets, dicts
-3. **Generators & Iterators** — Lazy evaluation, memory
-4. **Decorators & Context Managers** — Code quality
-5. **Lambda & Functional Programming** — Conciseness
+1. **Strings & Text Processing** — parsing, regex, cleaning
+2. **Arrays & Collections** — lists, tuples, sets, dicts
+3. **Generators & Iterators** — lazy evaluation, memory
+4. **Decorators & Context Managers** — code quality
+5. **Lambda & Functional Programming** — conciseness
 
-## Recomendación de Estudio
+## Recomendación de estudio
 
 **Para principiantes:**
-- Empieza con Strings
-- Luego Arrays
+
+- Empieza con strings
+- Luego arrays
 - Generators es concepto importante
 
 **Para seniors:**
-- Review para refresh
-- Enfócate en Decorators/Context Managers
-- Optimization patterns
 
+- Review para refresh
+- Enfócate en decorators/context managers
+- Optimization patterns

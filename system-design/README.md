@@ -4,40 +4,33 @@
 
 System Design es lo que diferencia Mid de Senior. No es solo "escribir queries", es "diseñar sistemas" que escalen.
 
-## Temas Cubiertos
+## Temas cubiertos
 
-1. **ETL Pipeline Architecture** — Batch vs Real-Time
-2. **Data Warehouse Design** — Schemas, Modeling
-3. **Stream Processing** — Kafka, Event-Driven
-4. **Data Quality at Scale** — Monitoring, Alerting
-5. **Optimization & Performance** — Bottlenecks, Trade-offs
-6. **Infrastructure** — Cloud, On-Prem, Hybrid
+1. **ETL Pipeline Architecture** — batch vs real-time
+2. **Data Warehouse Design** — schemas, modeling
+3. **Stream Processing** — Kafka, event-driven
+4. **Data Quality at Scale** — monitoring, alerting
+5. **Optimization & Performance** — bottlenecks, trade-offs
+6. **Infrastructure** — cloud, on-prem, hybrid
 
-## Estructura de Cada Problema
+## Estructura de cada problema
 
-Problema Real (no académico)
+- Problema real (no académico)
+- Constraints (datos, latencia, presupuesto)
+- Arquitectura propuesta
+- Trade-offs (CAP, consistency, availability)
+- Alternativas consideradas
+- Scaling strategy
 
-Constraints (datos, latencia, presupuesto)
+## Recomendación de estudio
 
-Arquitectura Propuesta
+**Para mid devs:**
 
-Trade-offs (CAP, Consistency, Availability)
-
-Alternativas Consideradas
-
-Scaling Strategy
-
-text
-
-## Recomendación de Estudio
-
-**Para Mid devs:**
-
-- Empieza con ETL Architecture
-- Entiende Batch vs Real-Time
+- Empieza con ETL architecture
+- Entiende batch vs real-time
 - Aprende trade-offs
 
-**Para Seniors:**
+**Para seniors:**
 
 - Domina todas las preguntas
 - Piensa en edge cases

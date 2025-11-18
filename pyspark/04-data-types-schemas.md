@@ -1,9 +1,6 @@
-# Data Types & Schemas en PySpark
+# Tipos de Datos y Schemas en PySpark
 
-**Tags**: #pyspark #schemas #data-types #structtype #real-interview  
-**Empresas**: Amazon, Google, Databricks, Stripe  
-**Dificultad**: Mid  
-**Tiempo estimado**: 20 min
+**Tags**: #pyspark #schemas #data-types #structtype #real-interview
 
 ---
 
@@ -43,43 +40,45 @@ Schema define estructura de DataFrame (nombre columna, tipo, nullable). Define c
 
 ### Datos: JSON sin estructura clara
 
+```json
 {"name": "Alice", "age": 28, "salary": 50000.50, "hired_date": "2024-01-15", "tags": ["python", "spark"]}
 {"name": "Bob", "age": 35, "salary": 60000.00, "hired_date": "2024-02-20", "tags": ["java"]}
 {"name": "Charlie", "age": null, "salary": 55000.75, "hired_date": "2024-03-10", "tags": []}
-
-text
+```
 
 ---
 
 ### ❌ Opción 1: Inferencia Automática (No recomendado)
 
+```python
 from pyspark.sql import SparkSession
 
 spark = SparkSession.builder.appName("Schema Inference").getOrCreate()
 
-Spark INFIERE el schema automáticamente
+# Spark INFIERE el schema automáticamente
 df = spark.read.json("employees.json")
 
-¿Qué schema creó Spark?
+# ¿Qué schema creó Spark?
 df.printSchema()
+```
 
-Problema:
+**Problema:**
 
 - Spark lee TODO el archivo 2 veces (ineficiente)
 - Si age es NULL en primeras filas, asume StringType (incorrecto)
 - StringType en age = problemas después (conversiones)
-  text
 
 **Output:**
-root
-|-- name: string (nullable = true)
-|-- age: long (nullable = true)
-|-- salary: double (nullable = true)
-|-- hired_date: string (nullable = true)
-|-- tags: array (nullable = true)
-| |-- element: string (containsNull = true)
 
-text
+```
+root
+ |-- name: string (nullable = true)
+ |-- age: long (nullable = true)
+ |-- salary: double (nullable = true)
+ |-- hired_date: string (nullable = true)
+ |-- tags: array (nullable = true)
+ |    |-- element: string (containsNull = true)
+```
 
 ⚠️ **Problemas**:
 
@@ -91,43 +90,45 @@ text
 
 ### ✅ Opción 2: Schema Explícito (Recomendado)
 
+```python
 from pyspark.sql.types import (
-StructType, StructField,
-StringType, IntegerType, DoubleType,
-DateType, ArrayType
+    StructType, StructField,
+    StringType, IntegerType, DoubleType,
+    DateType, ArrayType
 )
 
-Define schema explícitamente
+# Define schema explícitamente
 schema = StructType([
-StructField("name", StringType(), nullable=False), # No puede ser NULL
-StructField("age", IntegerType(), nullable=True), # Puede ser NULL
-StructField("salary", DoubleType(), nullable=False), # No puede ser NULL
-StructField("hired_date", DateType(), nullable=False), # Tipo correcto: DATE
-StructField("tags", ArrayType(StringType()), nullable=True) # Array de strings
+    StructField("name", StringType(), nullable=False),  # No puede ser NULL
+    StructField("age", IntegerType(), nullable=True),   # Puede ser NULL
+    StructField("salary", DoubleType(), nullable=False),  # No puede ser NULL
+    StructField("hired_date", DateType(), nullable=False),  # Tipo correcto: DATE
+    StructField("tags", ArrayType(StringType()), nullable=True)  # Array de strings
 ])
 
-Lee con schema explícito
+# Lee con schema explícito
 df = spark.read.schema(schema).json("employees.json")
 
 df.printSchema()
+```
 
-Ventajas:
+**Ventajas:**
 
 - Solo 1 scan del archivo (rápido)
 - Tipos correctos (DateType en hired_date)
 - Nullable especificado (contrato claro)
-  text
 
 **Output:**
-root
-|-- name: string (nullable = false)
-|-- age: integer (nullable = true)
-|-- salary: double (nullable = false)
-|-- hired_date: date (nullable = false)
-|-- tags: array (nullable = true)
-| |-- element: string (containsNull = true)
 
-text
+```
+root
+ |-- name: string (nullable = false)
+ |-- age: integer (nullable = true)
+ |-- salary: double (nullable = false)
+ |-- hired_date: date (nullable = false)
+ |-- tags: array (nullable = true)
+ |    |-- element: string (containsNull = true)
+```
 
 ---
 
@@ -155,119 +156,130 @@ text
 
 ### Array de Structs
 
+```python
 schema = StructType([
-StructField("employee_id", IntegerType(), False),
-StructField("name", StringType(), False),
-StructField("orders", ArrayType(
-StructType([
-StructField("order_id", IntegerType(), False),
-StructField("amount", DoubleType(), False),
-StructField("date", DateType(), False)
+    StructField("employee_id", IntegerType(), False),
+    StructField("name", StringType(), False),
+    StructField("orders", ArrayType(
+        StructType([
+            StructField("order_id", IntegerType(), False),
+            StructField("amount", DoubleType(), False),
+            StructField("date", DateType(), False)
+        ])
+    ), True)
 ])
-), True)
-])
+```
 
 Datos:
+
+```json
 {
-"employee_id": 1,
-"name": "Alice",
-"orders":
-{"order_id": 101, "amount": 500.0, "date": "2024-01-10"},
-{"order_id": 102, "amount": 750.0, "date": "2024-01-15"}
-]
+  "employee_id": 1,
+  "name": "Alice",
+  "orders": [
+    { "order_id": 101, "amount": 500.0, "date": "2024-01-10" },
+    { "order_id": 102, "amount": 750.0, "date": "2024-01-15" }
+  ]
 }
-text
+```
 
 ---
 
 ### Nested Structs
 
+```python
 schema = StructType([
-StructField("id", IntegerType(), False),
-StructField("person", StructType([
-StructField("name", StringType(), False),
-StructField("email", StringType(), False),
-StructField("address", StructType([
-StructField("street", StringType(), True),
-StructField("city", StringType(), False),
-StructField("zip", StringType(), True)
-]), True)
-]), False)
+    StructField("id", IntegerType(), False),
+    StructField("person", StructType([
+        StructField("name", StringType(), False),
+        StructField("email", StringType(), False),
+        StructField("address", StructType([
+            StructField("street", StringType(), True),
+            StructField("city", StringType(), False),
+            StructField("zip", StringType(), True)
+        ]), True)
+    ]), False)
 ])
+```
 
 Datos:
+
+```json
 {
-"id": 1,
-"person": {
-"name": "Alice",
-"email": "alice@example.com",
-"address": {
-"street": "123 Main St",
-"city": "NYC",
-"zip": "10001"
+  "id": 1,
+  "person": {
+    "name": "Alice",
+    "email": "alice@example.com",
+    "address": {
+      "street": "123 Main St",
+      "city": "NYC",
+      "zip": "10001"
+    }
+  }
 }
-}
-}
-text
+```
 
 ---
 
 ## Inferencia desde String (Hack útil)
 
 Si tienes schema como string (de API, config, etc.)
+
+```python
 schema_string = "name STRING, age INT, salary DOUBLE, hired_date DATE"
 
 df = spark.read.schema(schema_string).json("employees.json")
+```
 
 Equivalente a StructType explícito pero más legible
-text
 
 ---
 
 ## Nullable: Qué Significa
 
+```python
 nullable=False: Valor NUNCA puede ser NULL (constraint de integridad)
 StructField("id", IntegerType(), nullable=False)
 
 nullable=True: Valor PUEDE ser NULL (permite faltantes)
 StructField("middle_name", StringType(), nullable=True)
+```
 
 En SQL:
 nullable=False → NOT NULL constraint
 nullable=True → permite NULL
-text
 
 ---
 
 ## Validación de Schema
 
-Verificar qué schema Spark inferió (para debugging)
+```python
+# Verificar qué schema Spark inferió (para debugging)
 df.printSchema()
 
-Obtener schema como JSON (útil para guardar/documentar)
+# Obtener schema como JSON (útil para guardar/documentar)
 schema_json = df.schema.json()
 print(schema_json)
 
-Comparar schemas
+# Comparar schemas
 schema1 = StructType([StructField("id", IntegerType())])
 schema2 = StructType([StructField("id", LongType())])
-print(schema1 == schema2) # False (IntegerType ≠ LongType)
-
-text
+print(schema1 == schema2)  # False (IntegerType ≠ LongType)
+```
 
 ---
 
 ## Performance: Schema Explícito vs Inferencia
 
-Inferencia (2 scans)
-df_inferred = spark.read.json("big_file.json") # Scan 1: Infer schema, Scan 2: Read data
+```python
+# Inferencia (2 scans)
+df_inferred = spark.read.json("big_file.json")  # Scan 1: Infer schema, Scan 2: Read data
+# Tiempo: ~20 segundos para 1 GB
 
-Tiempo: ~20 segundos para 1 GB
-Explícito (1 scan)
-df_explicit = spark.read.schema(schema).json("big_file.json") # Solo 1 scan
-
-Tiempo: ~5 segundos para 1 GB (4x más rápido)
-text
+# Explícito (1 scan)
+df_explicit = spark.read.schema(schema).json("big_file.json")  # Solo 1 scan
+# Tiempo: ~5 segundos para 1 GB (4x más rápido)
+```
 
 ---
 
@@ -305,45 +317,43 @@ text
 
 ## Real-World: Production Schema Storage
 
-Guarda schema en repo para documentación
+```python
+# Guarda schema en repo para documentación
 import json
 
 schema_dict = {
-"fields": [
-{"name": "id", "type": "integer", "nullable": False},
-{"name": "name", "type": "string", "nullable": False},
-{"name": "salary", "type": "double", "nullable": False}
-]
+    "fields": [
+        {"name": "id", "type": "integer", "nullable": False},
+        {"name": "name", "type": "string", "nullable": False},
+        {"name": "salary", "type": "double", "nullable": False}
+    ]
 }
 
-En archivo: schemas/employees.json
+# En archivo: schemas/employees.json
 with open("schemas/employees.json", "w") as f:
-json.dump(schema_dict, f, indent=2)
+    json.dump(schema_dict, f, indent=2)
 
-En código: carga schema
+# En código: carga schema
 with open("schemas/employees.json") as f:
-schema_dict = json.load(f)
+    schema_dict = json.load(f)
 
-Convierte a StructType
+# Convierte a StructType
 def dict_to_struct(schema_dict):
-fields = []
-for field in schema_dict["fields"]:
-fields.append(StructField(
-field["name"],
-get_type(field["type"]),
-field["nullable"]
-))
-return StructType(fields)
+    fields = []
+    for field in schema_dict["fields"]:
+        fields.append(StructField(
+            field["name"],
+            get_type(field["type"]),
+            field["nullable"]
+        ))
+    return StructType(fields)
 
 schema = dict_to_struct(schema_dict)
 df = spark.read.schema(schema).json("data.json")
-
-text
+```
 
 ---
 
 ## References
 
-- [Data Types - PySpark Docs](https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/types.html)
-- [Schemas - Databricks Guide](https://docs.databricks.com/en/spark/latest/spark-sql/language-manual/syntax/data-types.html)
-- [StructType & StructField - Spark API](https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/types.html#pyspark.sql.types.StructType)
+- https://spark.apache.org/docs/latest/building-spark.html

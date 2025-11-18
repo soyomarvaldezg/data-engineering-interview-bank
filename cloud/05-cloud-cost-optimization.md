@@ -1,41 +1,38 @@
 # Optimización de Costos en la Nube & FinOps
 
-**Etiquetas**: #cloud #cost-optimization #finops #reserved-instances #spot #real-interview
-**Empresas**: Amazon, Google, Meta, Netflix, Uber
-**Dificultad**: Intermedio
-**Tiempo estimado**: 20 min
+**Tags**: #cloud #cost-optimization #finops #reserved-instances #spot #real-interview
 
 ---
 
 ## TL;DR
 
-**FinOps** = Operaciones Financieras. Los costos en la nube = 30-50% del presupuesto de IT. **Optimización**: Reserved Instances (ahorran 30-70%), Spot instances (ahorran 70-90%, riesgosas), auto-scaling (ajusta el tamaño correctamente), optimización de transferencia de datos (mayor costo oculto). **Realidad**: La mayoría de empresas desperdician 30-40% del gasto en la nube. **Oportunidad**: Ahorrar $100k-$1M/mes con decisiones inteligentes.
+**FinOps** = Operaciones Financieras. Los costos en la **cloud** = 30-50% del presupuesto de **IT**. **Optimización**: **Reserved Instances** (ahorran 30-70%), **Spot instances** (ahorran 70-90%, riesgosas), **auto-scaling** (ajusta el tamaño correctamente), optimización de **data transfer** (mayor costo oculto). **Realidad**: La mayoría de empresas desperdician 30-40% del gasto en la **cloud**. **Oportunidad**: Ahorrar $100k-$1M/mes con decisiones inteligentes.
 
 ---
 
 ## Concepto Core
 
-- **Qué es**: FinOps = disciplina para optimizar costos en la nube (como hacer presupuestos)
-- **Por qué importa**: Sin monitoreo, los costos en la nube explotan. $1M/mes → $2M/mes rápidamente
+- **Qué es**: **FinOps** = disciplina para optimizar costos en la **cloud** (como hacer presupuestos)
+- **Por qué importa**: Sin monitoreo, los costos en la **cloud** explotan. $1M/mes → $2M/mes rápidamente
 - **Principio clave**: Visibilidad de costos + gobernanza + optimización = "magia"
 
 ---
 
 ## Truco de Memoria
 
-**"Dinero que gotea"** — Sin FinOps, los costos gotean. Con FinOps, se seca el goteo.
+**"Dinero que gotea"** — Sin **FinOps**, los costos gotean. Con **FinOps**, se seca el goteo.
 
 ---
 
 ## Cómo Explicarlo en una Entrevista
 
-**Paso 1**: "Los costos en la nube = mayor gasto operacional. Típicamente se desperdicia 30-40%"
+**Paso 1**: "Los costos en la **cloud** = mayor gasto operacional. Típicamente se desperdicia 30-40%"
 
-**Paso 2**: "Palancas de optimización: Reserved Instances, Spot, ajuste de tamaño, transferencia de datos"
+**Paso 2**: "Palancas de optimización: **Reserved Instances**, **Spot**, ajuste de tamaño, **data transfer**"
 
-**Paso 3**: "Ahorros: 30-70% con RI, 70-90% con Spot (pero riesgoso)"
+**Paso 3**: "Ahorros: 30-70% con **RI**, 70-90% con **Spot** (pero riesgoso)"
 
-**Paso 4**: "Mayor costo oculto: Transferencia de datos ($0.09/GB en AWS)"
+**Paso 4**: "Mayor costo oculto: **Data transfer** ($0.09/GB en **AWS**)"
 
 ---
 
@@ -43,7 +40,7 @@
 
 ### Parte 1: Componentes de Costos
 
-Desglose de costos típico en la nube para una empresa:
+Desglose de costos típico en la **cloud** para una empresa:
 
 ```python
 infraestructura = {
@@ -72,7 +69,7 @@ print(f"Total mensual en AWS: ${total:,}")
 
 # Total mensual en AWS: $1,610,000
 # Típico sin optimización:
-# - 40% desperdiciado (capacidad sin usar, over-provisioning, transferencia de datos)
+# - 40% desperdiciado (capacidad sin usar, over-provisioning, data transfer)
 # - Potencial de ahorro: $1.6M × 0.4 = $640k/mes
 ```
 
@@ -80,11 +77,11 @@ print(f"Total mensual en AWS: ${total:,}")
 
 ### Parte 2: Reserved Instances (RI)
 
-**Qué es**: Paga por adelantado la capacidad de cómputo, obtén 30-70% de descuento.
+**Qué es**: Paga por adelantado la capacidad de **compute**, obtén 30-70% de descuento.
 
 **Precios (AWS EC2)**:
 
-```text
+```
 ┌────────────────┬──────────────┬─────────────┬──────────┐
 │ Tipo de Inst.  │ On-Demand    │ 1-Year RI   │ Ahorro   │
 ├────────────────┼──────────────┼─────────────┼──────────┤
@@ -100,7 +97,7 @@ m5.xlarge: $0.078/hr (¡60% de ahorro!)
 **Cálculo real del mundo**:
 
 ```python
-# Escenario: Servidor de base de datos en producción, siempre encendido
+# Escenario: Servidor de database en producción, siempre encendido
 instancia = "m5.xlarge"
 
 # On-demand
@@ -121,8 +118,8 @@ compromiso_anual = 0.105 * 8760 * 100  # $91,980
 # Punto de equilibrio: ~15 meses ✓ (vale la pena)
 
 # Estrategia:
-# - Baseline: Identifica el cómputo que corre 24/7 (producción permanente)
-# - Recomendación RI: 60-70% del cómputo total
+# - Baseline: Identifica el compute que corre 24/7 (producción permanente)
+# - Recomendación RI: 60-70% del compute total
 # - Restante 30-40%: Spot (intermitente), on-demand (flexible)
 ```
 
@@ -130,11 +127,11 @@ compromiso_anual = 0.105 * 8760 * 100  # $91,980
 
 ### Parte 3: Spot Instances (Riesgosas pero Baratas)
 
-**Qué es**: Capacidad EC2 sin usar, compra a 70-90% descuento, pero AWS puede terminarla en cualquier momento.
+**Qué es**: Capacidad **EC2** sin usar, compra a 70-90% descuento, pero **AWS** puede terminarla en cualquier momento.
 
 **Precios (AWS)**:
 
-```text
+```
 On-demand: $0.192/hr
 Spot: $0.057/hr (¡70% de ahorro!)
 Pero: Puede terminar con aviso de 2 minutos
@@ -142,19 +139,19 @@ Pero: Puede terminar con aviso de 2 minutos
 
 **Cuándo usar**:
 
-- ✓ Trabajos batch (pueden reintentarse)
-- ✓ Clusters Spark (pueden re-ejecutarse)
+- ✓ Trabajos **batch** (pueden reintentarse)
+- ✓ **Spark Clusters** (pueden re-ejecutarse)
 - ✓ Cargas no críticas
 
 **Cuándo NO usar**:
 
-- ✗ Bases de datos (no toleran interrupciones)
-- ✗ Servicios en tiempo real (SLA crítico)
+- ✗ **Databases** (no toleran interrupciones)
+- ✗ Servicios en tiempo real (**SLA** crítico)
 
 **Ejemplo real: Flota Spot**:
 
-```text
-Cluster Spark para ETL (trabajo batch, puede reintentar)
+```
+Spark Cluster para ETL (trabajo batch, puede reintentar)
 
 Composición:
 ├─ Master: 1× m5.xlarge on-demand ($0.192/hr = $141/mes)
@@ -165,7 +162,7 @@ Costo:
 
 Todo on-demand: ($0.192 + 10×$0.34) × 730 = $2,629/mes
 
-Mixto (RI master + Spot workers):
+Mixto (RI Master + Spot Workers):
 ├─ Master: $0.105 × 730 = $76.65/mes (RI)
 ├─ Workers: $0.10 × 10 × 730 = $730/mes (Spot)
 └─ Total: $806.65/mes
@@ -178,13 +175,13 @@ Aceptable para ETL batch (el trabajo se reintenta de todas formas)
 
 ---
 
-### Parte 4: Costos de Transferencia de Datos (Asesino Oculto)
+### Parte 4: Costos de Data Transfer (Asesino Oculto)
 
-**Error más costoso**: ¡No optimizar la transferencia de datos!
+**Error más costoso**: ¡No optimizar la **data transfer**!
 
-**Precios de Transferencia de Datos en AWS**:
+**Precios de Data Transfer en AWS**:
 
-```text
+```
 ┌─────────────────────────────────────────┬───────────┐
 │ Tipo de Transferencia                   │ Precio    │
 ├─────────────────────────────────────────┼───────────┤
@@ -235,7 +232,7 @@ ahorro_total = sin_optimizar - optimizado  # $2,445/mes (¡91%!)
 
 ### Parte 5: Ajuste de Tamaño & Auto-Scaling
 
-**Problema**: Over-provisioning (compra más grande de lo necesario).
+**Problema**: **Over-provisioning** (compra más grande de lo necesario).
 
 **Ejemplo: Servidor de base de datos**:
 
@@ -247,7 +244,7 @@ ahorro_total = sin_optimizar - optimizado  # $2,445/mes (¡91%!)
 # Ahorro: $1,226/mes (¡62% de reducción!)
 ```
 
-**Ejemplo: Auto-scaling (Cluster Spark)**:
+**Ejemplo: Auto-scaling (Spark Cluster)**:
 
 ```python
 # Sin auto-scaling:
@@ -276,8 +273,6 @@ configuracion_autoscaling = {
 ---
 
 ### Parte 6: Monitoreo y Gobernanza
-
-**Panel de control de costos**:
 
 ```python
 import boto3
@@ -320,23 +315,23 @@ for servicio, costo in sorted(costos_diarios.items(), key=lambda x: x[1], revers
 
 ## Caso Real: Reducir Costos en la Nube en 40%
 
-**Empresa**: Startup de e-commerce
+**Empresa**: **Startup** de **e-commerce**
 **Gasto actual**: $500k/mes
 **Problema**: Insostenible, quemando dinero
 
 **Hallazgos de auditoría**:
 
-```text
+```
 On-demand compute (debería usar RI): $200k/mes
 → Convierte a RI: Ahorra $90k/mes (45%)
 
 Oportunidades Spot: $100k en clusters EMR para batch
 → Usa Spot: Ahorra $70k/mes (70%)
 
-Transferencia de datos inflada: $50k/mes
+Data transfer inflada: $50k/mes
 → Comprime + optimiza: Ahorra $40k/mes (80%)
 
-Recursos sin usar: $80k/mes (bases de datos ociosas, clusters parados)
+Recursos sin usar: $80k/mes (databases ociosas, clusters parados)
 → Elimina: Ahorra $80k/mes (100%)
 
 Right-sizing: Servidores over-provisioned: $70k/mes
@@ -348,7 +343,7 @@ Nuevo gasto: $500k - $310k = $190k/mes
 
 **Línea de tiempo**:
 
-```text
+```
 Mes 1: Quick wins (elimina sin usar, comprime datos): $100k ahorrados
 Mes 2: Compromisos RI (1-año): $150k ahorrados
 Mes 3: Cambios de arquitectura (Spot, right-sizing): $310k ahorrados
@@ -365,7 +360,7 @@ Resultado:
 
 ## Mejores Prácticas de FinOps
 
-```text
+```
 Visibilidad
 └─ Etiquetas de asignación de costos (equipo, proyecto, ambiente)
 └─ Reportes diarios de costos (email o Slack)
@@ -378,7 +373,7 @@ Gobernanza
 
 Optimización
 └─ Revisión mensual de costos (busca tendencias)
-└─ Right-sizing trimestral (ajusta cómputo)
+└─ Right-sizing trimestral (ajusta compute)
 └─ Planificación anual de RI (proyecta necesidades del próximo año)
 
 Cultura
@@ -391,11 +386,11 @@ Cultura
 
 ## Errores Comunes en Entrevista
 
-- **Error**: "RI es siempre mejor" → **Solución**: Solo si la carga es predecible/permanente (60-70% del cómputo)
+- **Error**: "**RI** es siempre mejor" → **Solución**: Solo si la carga es predecible/permanente (60-70% del **compute**)
 
-- **Error**: Usar Spot para cargas críticas → **Solución**: Las terminaciones de Spot = incumplimiento de SLA
+- **Error**: Usar **Spot** para cargas críticas → **Solución**: Las terminaciones de **Spot** = incumplimiento de **SLA**
 
-- **Error**: Ignorar costos de transferencia de datos → **Solución**: Frecuentemente 30% del presupuesto, altamente optimizable
+- **Error**: Ignorar costos de **data transfer** → **Solución**: Frecuentemente 30% del presupuesto, altamente optimizable
 
 - **Error**: Sin etiquetado para asignación de costos → **Solución**: No puedes optimizar lo que no mides
 
@@ -403,22 +398,22 @@ Cultura
 
 ## Preguntas de Seguimiento
 
-1. **"¿Cuántos ahorros realísticamente?"**
-   - 30-40% típico (RI + right-sizing + transferencia de datos)
-   - 60%+ si inicialmente hay mucho desperdicio
+1.  **"¿Cuántos ahorros realísticamente?"**
+    - 30-40% típico (**RI** + **right-sizing** + **data transfer**)
+    - 60%+ si inicialmente hay mucho desperdicio
 
-2. **"¿RI vs Savings Plans?"**
-   - RI: Instancia fija, 60-70% de ahorro
-   - Savings Plans: Flexible (cualquier tipo de instancia), 50% de ahorro
-   - RI es mejor si conoces exactamente lo que necesitas
+2.  **"¿RI vs Savings Plans?"**
+    - **RI**: Instancia fija, 60-70% de ahorro
+    - **Savings Plans**: Flexible (cualquier tipo de instancia), 50% de ahorro
+    - **RI** es mejor si conoces exactamente lo que necesitas
 
-3. **"¿Cómo manejas optimización de costos en arquitectura?"**
-   - Diseña para costo desde el inicio (serverless, amigable con Spot)
-   - vs Optimizar lo existente (retrofits difíciles)
+3.  **"¿Cómo manejas optimización de costos en arquitectura?"**
+    - Diseña para costo desde el inicio (**serverless**, amigable con **Spot**)
+    - vs Optimizar lo existente (**retrofits** difíciles)
 
-4. **"¿Comparación de costos multi-nube?"**
-   - Típicamente: Nube primaria (tasas negociadas) + secundaria (más barata para servicio específico)
-   - Transferencia de datos entre nubes = costo mayor
+4.  **"¿Comparación de costos multi-cloud?"**
+    - Típicamente: **Cloud** primaria (tasas negociadas) + secundaria (más barata para servicio específico)
+    - **Data transfer** entre **clouds** = costo mayor
 
 ---
 

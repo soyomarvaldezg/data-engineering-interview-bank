@@ -1,9 +1,6 @@
 # Generators & Iterators en Python
 
-**Tags**: #python #generators #iterators #lazy-evaluation #memory-efficiency #real-interview  
-**Empresas**: Amazon, Google, Databricks, Stripe  
-**Dificultad**: Senior  
-**Tiempo estimado**: 22 min  
+**Tags**: #python #generators #iterators #lazy-evaluation #memory-efficiency #real-interview
 
 ---
 
@@ -43,282 +40,301 @@
 
 ### Parte 1: Iterators Basics
 
-===== WHAT IS AN ITERATOR? =====
-Object with iter() and next() methods
-my_list =
+```python
+# ===== WHAT IS AN ITERATOR? =====
+# Object with iter() and next() methods
+my_list = [1, 2, 3]
 
-Create iterator
+# Create iterator
 iterator = iter(my_list)
 
-Get next element
-print(next(iterator)) # 1
-print(next(iterator)) # 2
-print(next(iterator)) # 3
+# Get next element
+print(next(iterator))  # 1
+print(next(iterator))  # 2
+print(next(iterator))  # 3
 
-next() when done raises StopIteration
+# next() when done raises StopIteration
 try:
-print(next(iterator)) # Raises StopIteration
+    print(next(iterator))  # Raises StopIteration
 except StopIteration:
-print("Iterator exhausted")
+    print("Iterator exhausted")
+```
 
-===== FOR LOOP UNDER THE HOOD =====
-This:
-for item in :
-print(item)
+```python
+# ===== FOR LOOP UNDER THE HOOD =====
+# This:
+for item in my_list:
+    print(item)
 
-Is equivalent to:
-iterator = iter()
+# Is equivalent to:
+iterator = iter(my_list)
 while True:
-try:
-item = next(iterator)
-print(item)
-except StopIteration:
-break
-
-text
+    try:
+        item = next(iterator)
+        print(item)
+    except StopIteration:
+        break
+```
 
 ---
 
 ### Parte 2: Generators (Simple)
 
-===== GENERATOR: Function with yield =====
+```python
+# ===== GENERATOR: Function with yield =====
 def simple_generator():
-print("Start")
-yield 1
-print("After 1")
-yield 2
-print("After 2")
-yield 3
-print("After 3")
+    print("Start")
+    yield 1
+    print("After 1")
+    yield 2
+    print("After 2")
+    yield 3
+    print("After 3")
 
-Create generator (doesn't execute yet!)
+# Create generator (doesn't execute yet!)
 gen = simple_generator()
 print("Generator created (but not executed)")
 
-Get values
-print(next(gen)) # Prints "Start", then yields 1
-print(next(gen)) # Prints "After 1", then yields 2
-print(next(gen)) # Prints "After 2", then yields 3
+# Get values
+print(next(gen))  # Prints "Start", then yields 1
+print(next(gen))  # Prints "After 1", then yields 2
+print(next(gen))  # Prints "After 2", then yields 3
+```
 
-===== GENERATOR vs LIST =====
-List: Computes ALL at once
+```python
+# ===== GENERATOR vs LIST =====
+# List: Computes ALL at once
 def list_version():
-result = []
-for i in range(5):
-print(f"Computing {i}")
-result.append(i ** 2)
-return result
+    result = []
+    for i in range(5):
+        print(f"Computing {i}")
+        result.append(i ** 2)
+    return result
 
 print("List version:")
-list_result = list_version() # Computes ALL 5 immediately
+list_result = list_version()  # Computes ALL 5 immediately
 print(f"Result: {list_result}")
 
-Generator: Computes on-demand
+# Generator: Computes on-demand
 def generator_version():
-for i in range(5):
-print(f"Computing {i}")
-yield i ** 2
+    for i in range(5):
+        print(f"Computing {i}")
+        yield i ** 2
 
 print("\nGenerator version:")
-gen_result = generator_version() # Does NOTHING yet
+gen_result = generator_version()  # Does NOTHING yet
 print("Generator created")
-print(next(gen_result)) # Computes only 1st
-print(next(gen_result)) # Computes only 2nd
-
-text
+print(next(gen_result))  # Computes only 1st
+print(next(gen_result))  # Computes only 2nd
+```
 
 ---
 
 ### Parte 3: Real-World: Reading Large Files
 
-❌ BAD: Load entire file into memory
+```python
+# ❌ BAD: Load entire file into memory
 def read_file_all(filepath):
-with open(filepath) as f:
-lines = f.readlines() # Entire file in memory!
-return lines
+    with open(filepath) as f:
+        lines = f.readlines()  # Entire file in memory!
+    return lines
 
-File: 10GB → Memory: 10GB ← Problem!
-✅ GOOD: Generator (line by line)
+# File: 10GB → Memory: 10GB ← Problem!
+
+# ✅ GOOD: Generator (line by line)
 def read_file_generator(filepath):
-with open(filepath) as f:
-for line in f:
-yield line.strip()
+    with open(filepath) as f:
+        for line in f:
+            yield line.strip()
 
-Usage: Memory = 1 line only!
+# Usage: Memory = 1 line only!
 for line in read_file_generator("huge_file.log"):
-process(line) # Process one line at a time
+    process(line)  # Process one line at a time
+```
 
-===== PARSING CSV FROM GENERATOR =====
+```python
+# ===== PARSING CSV FROM GENERATOR =====
 import csv
 
 def read_csv_generator(filepath):
-with open(filepath) as f:
-reader = csv.DictReader(f)
-for row in reader:
-yield row
+    with open(filepath) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            yield row
 
-Process millions of rows without loading all
+# Process millions of rows without loading all
 for customer in read_csv_generator("customers.csv"):
-validate(customer)
-save_to_db(customer)
+    validate(customer)
+    save_to_db(customer)
 
-Memory: O(1) regardless of file size!
-text
+# Memory: O(1) regardless of file size!
+```
 
 ---
 
 ### Parte 4: Generator Expressions (Concise)
 
-===== GENERATOR EXPRESSION vs LIST COMPREHENSION =====
-List comprehension: creates list in memory
+```python
+# ===== GENERATOR EXPRESSION vs LIST COMPREHENSION =====
+# List comprehension: creates list in memory
 squares_list = [x ** 2 for x in range(1000000)]
-print(type(squares_list)) # <class 'list'>
+print(type(squares_list))  # <class 'list'>
+# Memory: ~8MB (1M integers)
 
-Memory: ~8MB (1M integers)
-Generator expression: lazy
+# Generator expression: lazy
 squares_gen = (x ** 2 for x in range(1000000))
-print(type(squares_gen)) # <class 'generator'>
+print(type(squares_gen))  # <class 'generator'>
+# Memory: ~1KB (just the generator object)
+```
 
-Memory: ~1KB (just the generator object)
-===== SUM EXAMPLE =====
-Bad: Create huge list, then sum
+```python
+# ===== SUM EXAMPLE =====
+# Bad: Create huge list, then sum
 total = sum([x ** 2 for x in range(1000000)])
 
-Good: Sum directly from generator (no intermediate list)
+# Good: Sum directly from generator (no intermediate list)
 total = sum(x ** 2 for x in range(1000000))
+```
 
-===== CHAINING GENERATORS =====
+```python
+# ===== CHAINING GENERATORS =====
 def even_numbers():
-for i in range(10):
-if i % 2 == 0:
-yield i
+    for i in range(10):
+        if i % 2 == 0:
+            yield i
 
 def square(numbers):
-for n in numbers:
-yield n ** 2
+    for n in numbers:
+        yield n ** 2
 
-Chain them (no intermediate lists!)
-result = square(even_numbers()) # Creates generator of generators
+# Chain them (no intermediate lists!)
+result = square(even_numbers())  # Creates generator of generators
 
 for value in result:
-print(value) # 0, 4, 16, 36, 64
-
-text
+    print(value)  # 0, 4, 16, 36, 64
+```
 
 ---
 
 ### Parte 5: Generator Advantages for Big Data
 
-===== SCENARIO: Process log file with 1B lines =====
-❌ NAIVE APPROACH
+```python
+# ===== SCENARIO: Process log file with 1B lines =====
+# ❌ NAIVE APPROACH
 def process_all_at_once(logfile):
-with open(logfile) as f:
-lines = f.readlines() # ← OOM! 1B lines = 100GB memory
+    with open(logfile) as f:
+        lines = f.readlines()  # ← OOM! 1B lines = 100GB memory
+    errors = [l for l in lines if "ERROR" in l]
+    return errors
 
-text
-errors = [l for l in lines if "ERROR" in l]
-
-return errors
-✅ GENERATOR APPROACH
+# ✅ GENERATOR APPROACH
 def process_streaming(logfile):
-with open(logfile) as f:
-for line in f:
-if "ERROR" in line:
-yield line.strip()
+    with open(logfile) as f:
+        for line in f:
+            if "ERROR" in line:
+                yield line.strip()
 
-Memory: O(1) — only 1 line at a time
-===== REAL SCENARIO: ETL Pipeline =====
+# Memory: O(1) — only 1 line at a time
+```
+
+```python
+# ===== REAL SCENARIO: ETL Pipeline =====
 def read_orders_from_db(query):
-"""Generator: yields orders from database"""
-db = connect_to_db()
-cursor = db.execute(query)
+    """Generator: yields orders from database"""
+    db = connect_to_db()
+    cursor = db.execute(query)
 
-text
-for row in cursor:
-    yield {
-        "order_id": row,
-        "customer_id": row,
-        "amount": row
-    }
+    for row in cursor:
+        yield {
+            "order_id": row[0],
+            "customer_id": row[1],
+            "amount": row[2]
+        }
+
 def transform_order(orders):
-"""Generator: transforms each order"""
-for order in orders:
-order["amount_with_tax"] = order["amount"] * 1.1
-order["processed_at"] = datetime.now()
-yield order
+    """Generator: transforms each order"""
+    for order in orders:
+        order["amount_with_tax"] = order["amount"] * 1.1
+        order["processed_at"] = datetime.now()
+        yield order
 
 def load_to_warehouse(orders):
-"""Generator consumer: loads to warehouse"""
-for order in orders:
-db.insert("fact_orders", order)
+    """Generator consumer: loads to warehouse"""
+    for order in orders:
+        db.insert("fact_orders", order)
 
-===== FULL PIPELINE: No intermediate storage! =====
+# ===== FULL PIPELINE: No intermediate storage! =====
 orders = read_orders_from_db("SELECT * FROM orders")
 transformed = transform_order(orders)
 load_to_warehouse(transformed)
 
-Memory: O(1) regardless of # orders (even 1B rows)
-vs Traditional ETL: O(n) memory (huge!)
-text
+# Memory: O(1) regardless of # orders (even 1B rows)
+# vs Traditional ETL: O(n) memory (huge!)
+```
 
 ---
 
 ### Parte 6: Generator Methods
 
-===== SEND: Comunicate back to generator =====
+```python
+# ===== SEND: Comunicate back to generator =====
 def generator_with_send():
-total = 0
-while True:
-value = yield total
-if value is None:
-break
-total += value
+    total = 0
+    while True:
+        value = yield total
+        if value is None:
+            break
+        total += value
 
 gen = generator_with_send()
-print(next(gen)) # 0 (first yield)
-print(gen.send(10)) # 10 (adds 10, yields new total)
-print(gen.send(5)) # 15 (adds 5, yields new total)
-gen.send(None) # Stops generator
+print(next(gen))  # 0 (first yield)
+print(gen.send(10))  # 10 (adds 10, yields new total)
+print(gen.send(5))  # 15 (adds 5, yields new total)
+gen.send(None)  # Stops generator
+```
 
-===== THROW: Raise exception inside generator =====
+```python
+# ===== THROW: Raise exception inside generator =====
 def generator_with_throw():
-try:
-yield 1
-yield 2
-yield 3
-except ValueError:
-print("Caught ValueError!")
+    try:
+        yield 1
+        yield 2
+        yield 3
+    except ValueError:
+        print("Caught ValueError!")
 
 gen = generator_with_throw()
-print(next(gen)) # 1
-gen.throw(ValueError, "Error message") # Raises inside generator
+print(next(gen))  # 1
+gen.throw(ValueError, "Error message")  # Raises inside generator
+```
 
-===== CLOSE: Stop generator =====
+```python
+# ===== CLOSE: Stop generator =====
 gen = (x for x in range(10))
-next(gen) # 0
-gen.close() # Stop
-
-next(gen) raises StopIteration
-text
+next(gen)  # 0
+gen.close()  # Stop
+# next(gen) raises StopIteration
+```
 
 ---
 
 ## Generator vs List Performance
 
+```python
 import sys
 import time
 
-Compare memory
+# Compare memory
 numbers_list = list(range(1000000))
 numbers_gen = (x for x in range(1000000))
 
 print(f"List memory: {sys.getsizeof(numbers_list) / 1024 / 1024:.2f} MB")
+# List memory: 8.59 MB
 
-List memory: 8.59 MB
 print(f"Generator memory: {sys.getsizeof(numbers_gen)} bytes")
+# Generator memory: 128 bytes (1000x smaller!)
 
-Generator memory: 128 bytes (1000x smaller!)
-Compare time
+# Compare time
 start = time.time()
 sum(numbers_list)
 list_time = time.time() - start
@@ -327,10 +343,9 @@ start = time.time()
 sum(x for x in range(1000000))
 gen_time = time.time() - start
 
-print(f"List sum: {list_time:.4f}s") # ~0.08s
-print(f"Generator sum: {gen_time:.4f}s") # ~0.08s (similar, but memory!)
-
-text
+print(f"List sum: {list_time:.4f}s")  # ~0.08s
+print(f"Generator sum: {gen_time:.4f}s")  # ~0.08s (similar, but memory!)
+```
 
 ---
 
@@ -340,7 +355,7 @@ text
 
 - **Error**: Intentar usar generator dos veces → **Solución**: Generators exhaust después de una pasada. Crea uno nuevo si necesitas iterar again
 
-- **Error**: Olvidando que generator es lazy (no ejecuta hasta iterate)** → **Solución**: Si necesitas realizar side effects, asegurate de iterar
+- **Error**: Olvidando que generator es lazy (no ejecuta hasta iterate) → **Solución**: Si necesitas realizar side effects, asegurate de iterar
 
 - **Error**: Retornar list cuando generator es mejor → **Solución**: Para big data, siempre generator
 
@@ -368,56 +383,55 @@ text
 
 ## Real-World: ETL Pipeline with Generators
 
+```python
 from datetime import datetime
 import csv
 
 def read_csv_chunked(filepath, chunk_size=1000):
-"""Read CSV in chunks, yield batches"""
-with open(filepath) as f:
-reader = csv.DictReader(f)
-chunk = []
-for row in reader:
-chunk.append(row)
-if len(chunk) == chunk_size:
-yield chunk
-chunk = []
-if chunk:
-yield chunk
+    """Read CSV in chunks, yield batches"""
+    with open(filepath) as f:
+        reader = csv.DictReader(f)
+        chunk = []
+        for row in reader:
+            chunk.append(row)
+            if len(chunk) == chunk_size:
+                yield chunk
+                chunk = []
+        if chunk:
+            yield chunk
 
 def validate_records(record_batches):
-"""Validate and filter"""
-for batch in record_batches:
-valid_batch = []
-for record in batch:
-if is_valid(record):
-valid_batch.append(record)
-if valid_batch:
-yield valid_batch
+    """Validate and filter"""
+    for batch in record_batches:
+        valid_batch = []
+        for record in batch:
+            if is_valid(record):
+                valid_batch.append(record)
+        if valid_batch:
+            yield valid_batch
 
 def load_to_warehouse(valid_batches):
-"""Load to database"""
-total_loaded = 0
-for batch in valid_batches:
-db.insert_batch("fact_data", batch)
-total_loaded += len(batch)
-return total_loaded
+    """Load to database"""
+    total_loaded = 0
+    for batch in valid_batches:
+        db.insert_batch("fact_data", batch)
+        total_loaded += len(batch)
+    return total_loaded
 
-===== FULL PIPELINE =====
+# ===== FULL PIPELINE =====
 batches = read_csv_chunked("huge_file.csv", chunk_size=5000)
 valid_batches = validate_records(batches)
 total = load_to_warehouse(valid_batches)
 
 print(f"Loaded {total} records")
 
-Memory: Only 5000 rows in memory at a time!
-File: 1B rows, Memory: 5000 rows (0.0005%)
-text
+# Memory: Only 5000 rows in memory at a time!
+# File: 1B rows, Memory: 5000 rows (0.0005%)
+```
 
 ---
 
 ## References
 
-- [Generators - PEP 255](https://www.python.org/dev/peps/pep-0255/)
 - [Iterators & Generators - Python Docs](https://docs.python.org/3/tutorial/classes.html#iterators)
 - [Generator Expressions - Python Docs](https://docs.python.org/3/reference/expressions.html#generator-expressions)
-

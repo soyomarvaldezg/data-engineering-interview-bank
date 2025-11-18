@@ -2,7 +2,7 @@
 
 ## ¿Por qué SQL es importante?
 
-SQL es la **habilidad número 1** en data engineering.
+SQL es la **habilidad número 1** en data engineering.  
 En entrevistas, esperan que domines:
 
 - Window Functions
@@ -20,4 +20,4 @@ En entrevistas, esperan que domines:
 
 ## Recomendación de estudio
 
-Comienza con Window Functions → luego Joins → después Optimization
+Comienza con Window Functions → luego Joins → después Optimization.

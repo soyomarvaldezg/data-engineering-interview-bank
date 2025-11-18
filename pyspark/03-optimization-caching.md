@@ -1,9 +1,6 @@
 # PySpark Optimization & Caching Strategies
 
-**Tags**: #pyspark #optimization #caching #performance #senior #real-interview  
-**Empresas**: Amazon, Google, Meta, Databricks  
-**Dificultad**: Senior  
-**Tiempo estimado**: 25 min  
+**Tags**: #pyspark #optimization #caching #performance #senior #real-interview
 
 ---
 
@@ -24,6 +21,7 @@ Optimiza Spark con: (1) **Partitioning** — divide datos por clave, (2) **Cachi
 ## Memory Trick
 
 **"Fábrica eficiente"**:
+
 - Partitioning = producción distribuida (cada factory = parte de datos)
 - Caching = almacén temporal (reutiliza products populares)
 - Broadcasting = manuales en cada factory (información pequeña, no transmite)
@@ -47,10 +45,12 @@ Optimiza Spark con: (1) **Partitioning** — divide datos por clave, (2) **Cachi
 ### Escenario: Join Gigante (Problema típico)
 
 **Datos:**
+
 - orders: 1 millón filas (1 GB) — distribuidao
 - customers: 1 millón filas (500 MB) — pequeña
 - products: 100k filas (50 MB) — muy pequeña
 
+```python
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, broadcast
 
@@ -60,96 +60,97 @@ orders = spark.read.parquet("orders/") # 1 GB
 customers = spark.read.parquet("customers/") # 500 MB
 products = spark.read.parquet("products/") # 50 MB
 
-❌ PROBLEMA: Join sin optimización
+# ❌ PROBLEMA: Join sin optimización
 slow_result = (
-orders
-.join(customers, "customer_id") # Shuffle gigante: 1GB ↔ 500MB
-.join(products, "product_id") # Shuffle de nuevo
+    orders
+    .join(customers, "customer_id")  # Shuffle gigante: 1GB ↔ 500MB
+    .join(products, "product_id")    # Shuffle de nuevo
 )
 
 print("Tiempo esperado: 15+ minutos (shuffle masivo)")
-
-text
+```
 
 **Lo que pasa sin optimización:**
+
+```
 Shuffle orders por customer_id (1GB enviado por red)
-
+↓
 Shuffle customers por customer_id (500MB enviado por red)
-
+↓
 Match local (finalmente)
-
+↓
 Repeat para products
-
-text
+```
 
 ---
 
 ### ✅ Opción 1: Broadcasting (Recomendado para este caso)
 
-products es pequeña (50 MB). Broadcast a todos workers
+```python
+# products es pequeña (50 MB). Broadcast a todos workers
 fast_result = (
-orders
-.join(broadcast(customers), "customer_id") # ← Broadcast 500MB a cada worker
-.join(broadcast(products), "product_id") # ← Broadcast 50MB a cada worker
+    orders
+    .join(broadcast(customers), "customer_id")  # ← Broadcast 500MB a cada worker
+    .join(broadcast(products), "product_id")   # ← Broadcast 50MB a cada worker
 )
 
-Tiempo: 1-2 minutos
-Qué pasó: Cada worker tiene copia de customers+products, local join
-text
+# Tiempo: 1-2 minutos
+# Qué pasó: Cada worker tiene copia de customers+products, local join
+```
 
 **Timeline:**
+
+```
 BROADCAST (instantáneo, < 1 GB cada):
-
 customers (500MB) enviado 1 sola vez a cada worker
-
 products (50MB) enviado 1 sola vez a cada worker
 
 JOIN (local, rápido):
-
 En cada worker: orders [local] ← join → customers [local] ← join → products [local]
-
-text
+```
 
 ---
 
 ### ✅ Opción 2: Partitioning (Para joins recurrentes)
 
-Si haces este join muchas veces, particiona
+```python
+# Si haces este join muchas veces, particiona
 customers_partitioned = customers.repartition(col("customer_id"))
 products_partitioned = products.repartition(col("product_id"))
 
-Cacheamos particiones
+# Cacheamos particiones
 customers_partitioned.cache()
 products_partitioned.cache()
 
 result = (
-orders
-.join(customers_partitioned, "customer_id") # Menos shuffle
-.join(products_partitioned, "product_id")
+    orders
+    .join(customers_partitioned, "customer_id")  # Menos shuffle
+    .join(products_partitioned, "product_id")
 )
 
-Primera ejecución: 5 minutos (partitioning + caching)
-Siguientes: 1 minuto (usa cache)
-text
+# Primera ejecución: 5 minutos (partitioning + caching)
+# Siguientes: 1 minuto (usa cache)
+```
 
 ---
 
 ### ✅ Opción 3: Bucketing (Pre-partitioned en Storage)
 
-Para queries recurrentes, guarda datos bucketed
-Writes ONE TIME:
+```python
+# Para queries recurrentes, guarda datos bucketed
+# Writes ONE TIME:
 customers.write.mode("overwrite").bucketBy(10, "customer_id").saveAsTable("customers_bucketed")
 products.write.mode("overwrite").bucketBy(5, "product_id").saveAsTable("products_bucketed")
 
-Luego:
+# Luego:
 customers_b = spark.table("customers_bucketed")
 products_b = spark.table("products_bucketed")
 
 result = orders.join(customers_b, "customer_id").join(products_b, "product_id")
 
-Spark SABE que ya está bucketed, no hace shuffle (sorttable merge join)
-Tiempo: 1-2 minutos SIEMPRE (óptimo)
-text
+# Spark SABE que ya está bucketed, no hace shuffle (sorttable merge join)
+# Tiempo: 1-2 minutos SIEMPRE (óptimo)
+```
 
 ---
 
@@ -157,53 +158,54 @@ text
 
 ### Cuándo Cachear
 
-❌ NO cachear todo
-result.cache() # Desperdicia memoria
+```python
+# ❌ NO cachear todo
+result.cache()  # Desperdicia memoria
 
-✅ Cachear transformations CARAS
+# ✅ Cachear transformations CARAS
 parsed_data = raw_data.flatMap(expensive_parsing_function)
 parsed_data.cache()
 
-Usado múltiples veces:
+# Usado múltiples veces:
 result1 = parsed_data.filter(...)
 result2 = parsed_data.groupBy(...)
 result3 = parsed_data.join(...)
-
-text
+```
 
 ---
 
 ### Storage Levels
 
+```python
 from pyspark.storagelevel import StorageLevel
 
-MEMORY (rápido, puede faltar espacio)
-df.cache() # Equivalente a MEMORY
+# MEMORY (rápido, puede faltar espacio)
+df.cache()  # Equivalente a MEMORY
 df.persist(StorageLevel.MEMORY_ONLY)
 
-MEMORY_AND_DISK (safe, más lento)
+# MEMORY_AND_DISK (safe, más lento)
 df.persist(StorageLevel.MEMORY_AND_DISK)
 
-DISK_ONLY (último recurso)
+# DISK_ONLY (último recurso)
 df.persist(StorageLevel.DISK_ONLY)
 
-MEMORY_SERIALIZED (comprimido, más lento pero compacto)
+# MEMORY_SERIALIZED (comprimido, más lento pero compacto)
 df.persist(StorageLevel.MEMORY_ONLY_SER)
 
-Recomendación: MEMORY_AND_DISK para data > 1GB
-text
+# Recomendación: MEMORY_AND_DISK para data > 1GB
+```
 
 ---
 
 ### Uncache
 
-Liberar memoria después de usar
+```python
+# Liberar memoria después de usar
 df.unpersist()
 
-Lazy unpersist (después de siguiente action)
+# Lazy unpersist (después de siguiente action)
 df.unpersist(blocking=False)
-
-text
+```
 
 ---
 
@@ -211,26 +213,26 @@ text
 
 Para datos pequeños (< 2GB):
 
-Diccionario de config (pequeño)
+```python
+# Diccionario de config (pequeño)
 config = {"USD": 1.0, "EUR": 0.85, "GBP": 0.73}
 
-SIN broadcast (❌ ineficiente)
+# SIN broadcast (❌ ineficiente)
 def convert_currency(row):
-# Accede a 'config' en cada worker (ineficiente)
-return config.get(row.currency)
+    # Accede a 'config' en cada worker (ineficiente)
+    return config.get(row.currency)
 
 result = df.rdd.map(convert_currency)
 
-CON broadcast (✅ eficiente)
+# CON broadcast (✅ eficiente)
 broadcast_config = spark.broadcast(config)
 
 def convert_currency_optimized(row):
-# Accede a copia local en worker
-return broadcast_config.value.get(row.currency)
+    # Accede a copia local en worker
+    return broadcast_config.value.get(row.currency)
 
 result = df.rdd.map(convert_currency_optimized)
-
-text
+```
 
 ---
 
@@ -238,30 +240,32 @@ text
 
 ### Repartition vs Coalesce
 
-REPARTITION: Siempre rehash (shuffle)
-df.repartition(100) # Útil si aumentas particiones
+```python
+# REPARTITION: Siempre rehash (shuffle)
+df.repartition(100)  # Útil si aumentas particiones
 
-COALESCE: Merge particiones sin shuffle
-df.coalesce(10) # Útil si disminuyes particiones (10x más rápido)
+# COALESCE: Merge particiones sin shuffle
+df.coalesce(10)  # Útil si disminuyes particiones (10x más rápido)
 
-Regla: coalesce si menos particiones, repartition si más
-text
+# Regla: coalesce si menos particiones, repartition si más
+```
 
 ---
 
 ### Partitioning Smart
 
-¿Cuántas particiones?
-Regla: 1 partition = 128 MB idealmente
-Para 1 GB de datos:
-df.repartition(10) # ≈ 100 MB por partición (óptimo)
+```python
+# ¿Cuántas particiones?
+# Regla: 1 partition = 128 MB idealmente
+# Para 1 GB de datos:
+df.repartition(10)  # ≈ 100 MB por partición (óptimo)
 
-Para 10 GB:
-df.repartition(100) # ≈ 100 MB por partición
+# Para 10 GB:
+df.repartition(100)  # ≈ 100 MB por partición
 
-Demasiadas particiones = overhead
-Pocas particiones = bajo paralelismo
-text
+# Demasiadas particiones = overhead
+# Pocas particiones = bajo paralelismo
+```
 
 ---
 
@@ -269,22 +273,27 @@ text
 
 ### Via `.explain()`
 
-Modo simple (básico)
+```python
+# Modo simple (básico)
 df.explain(mode="simple")
 
-Modo extended (Catalyst optimizations)
+# Modo extended (Catalyst optimizations)
 df.explain(mode="extended")
+```
 
 Busca estos problemas:
+
 - Exchange (SHUFFLE) - caro
 - Cartesian Product - muy caro
 - Broadcast Join vs Sort Merge Join
+
+```python
 result = orders.join(customers, "customer_id")
 result.explain(mode="extended")
+```
 
 Si ves "Exchange" → Reduce con broadcast/partition
 Si ves "Cartesian" → Hay bug en join condition
-text
 
 ---
 
@@ -293,12 +302,14 @@ text
 **URL:** `http://localhost:4040` (durante ejecución)
 
 **Qué ver:**
+
 - **Stages**: Cuál es más lento?
 - **Tasks**: Task que corre > 1 minuto?
 - **Shuffle**: Cuántos bytes se movieron?
 - **Skewed**: Un task mucho más lento que otros?
 
 **Acción:**
+
 - Task lento = aumento particiones en ese stage
 - Shuffle grande = considera broadcast/bucketing
 
@@ -306,37 +317,38 @@ text
 
 ## Real-World: Full Optimization Pipeline
 
-Escenario: Daily report, 10 GB orders, 1 GB customers
+```python
+# Escenario: Daily report, 10 GB orders, 1 GB customers
 orders = spark.read.parquet("orders/daily")
 customers = spark.read.parquet("customers/")
 
-Step 1: Broadcast small dimension
+# Step 1: Broadcast small dimension
 customers_bcast = broadcast(customers)
 
-Step 2: Partition orders by date (pre-filter)
+# Step 2: Partition orders by date (pre-filter)
 orders_filtered = orders.filter(col("date") >= "2024-01-01")
 
-Step 3: Join with broadcast
+# Step 3: Join with broadcast
 joined = orders_filtered.join(customers_bcast, "customer_id")
 
-Step 4: Cache before multiple aggregations
+# Step 4: Cache before multiple aggregations
 joined.cache()
 
-Step 5: Multiple aggregations (usan cache)
+# Step 5: Multiple aggregations (usan cache)
 by_customer = joined.groupBy("customer_id").agg(sum("amount"))
 by_product = joined.groupBy("product").agg(count("*"))
 by_date = joined.groupBy("date").agg(avg("amount"))
 
-Step 6: Write results
+# Step 6: Write results
 by_customer.write.parquet("output/by_customer")
 by_product.write.parquet("output/by_product")
 by_date.write.parquet("output/by_date")
 
-Performance:
-- Sin optimización: 30 minutos
-- Con broadcasts: 10 minutos
-- Con caching: 5 minutos (primero) + 1 min (otros)
-text
+# Performance:
+# - Sin optimización: 30 minutos
+# - Con broadcasts: 10 minutos
+# - Con caching: 5 minutos (primero) + 1 min (otros)
+```
 
 ---
 
@@ -374,8 +386,6 @@ text
 
 ## References
 
-- [PySpark Optimization - Databricks](https://docs.databricks.com/en/spark/latest/spark-sql/query-optimizer.html)
 - [Caching & Persistence - Spark Docs](https://spark.apache.org/docs/latest/rdd-programming-guide.html#rdd-persistence)
 - [Broadcasting - Spark Docs](https://spark.apache.org/docs/latest/rdd-programming-guide.html#broadcast-variables)
 - [Bucketing - Spark SQL](https://spark.apache.org/docs/latest/sql-data-sources-parquet.html#partition-discovery)
-

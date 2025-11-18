@@ -1,443 +1,471 @@
-# Diseñar Sistema Real-Time: Kafka + Streaming
+# Diseñar Sistema en Tiempo Real: Kafka + Streaming
 
-**Tags**: #system-design #streaming #kafka #real-time #architecture #real-interview  
-**Empresas**: Amazon, Google, Meta, Netflix  
-**Dificultad**: Senior  
-**Tiempo estimado**: 30 min  
+**Tags**: #system-design #streaming #kafka #real-time #architecture #real-interview
 
 ---
 
 ## TL;DR
 
-Real-time streaming = datos procesados milisegundos después de ocurrir (vs batch = horas). Kafka = message broker (durabilidad, ordenamiento). Spark Streaming o Flink = procesamiento. Trade-off: Simple (Batch) vs Complex (Real-time), pero algunas apps NECESITAN real-time (fraud detection, live dashboards, recommendations).
+Sistema en tiempo real = Kafka (mensajes duraderos) + Streaming (procesamiento). Arquitectura: Productores → Kafka → Consumidores (Spark/Flink) → Almacenamiento (Data Lake). Decisiones clave: Particionamiento (clave de partición, número), Configuración de Kafka (réplicas, retención), Estrategia de Consumo (grupos, reintentos), Monitoreo (métricas, alertas). Trade-off: Latencia vs Complejidad vs Costo.
+
+---
+
+## Concepto Core
+
+- **Qué es**: Sistema que procesa eventos a medida que llegan (tiempo real)
+- **Por qué importa**: Fundamental para detección de fraude, dashboards en tiempo real, recomendaciones en tiempo real
+- **Principio clave**: Kafka = log inmutable. Los consumidores leen pero no eliminan mensajes
 
 ---
 
 ## Problema Real
 
-**Escenario:**
+**Escenario**:
 
-- Fintech: Detección de fraude en transacciones
-- Necesita: Detectar fraude en < 500ms (bloquear transacción)
-- Volumen: 1M transacciones/min (16.7k/seg)
-- Datos históricos: 1 año de transacciones (para modelos ML)
-- Business: Reducir fraude en 50%, cero falsos positivos
+- Plataforma de comercio electrónico con 100,000 transacciones/minuto
+- Necesita detección de fraude en tiempo real (< 500ms)
+- Dashboard de métricas en tiempo real
+- Equipo de analítica (10 personas) + 2 ingenieros de datos
+- Presupuesto: $8,000/mes en infraestructura en la nube
 
-**Preguntas:**
+**Preguntas**:
 
-1. ¿Cómo diseñas pipeline real-time?
-2. ¿Kafka es necesario? ¿Alternativas?
-3. ¿Cómo mantienes low latency?
-4. ¿Cómo manejas errores sin perder datos?
-5. ¿Cómo escalas a 10M transacciones/min?
-
----
-
-## Solución: Real-Time Fraud Detection Pipeline
-
-### Arquitectura
-
-┌─────────────────────────────────────────────────────────────┐
-│ SOURCES (Transacciones) │
-│ ├─ Credit Card API │
-│ ├─ Mobile App │
-│ └─ Web Platform │
-└─────────────┬───────────────────────────────────────────────┘
-│ (1M tx/min, ~16.7k/seg)
-▼
-┌─────────────────────────────────────────────────────────────┐
-│ KAFKA CLUSTER (Message Broker) │
-│ Topic: transactions (partitions=100, replication=3) │
-│ ├─ Durability: Persist 7 days │
-│ ├─ Retention: 1 week (para replay) │
-│ └─ Latency: < 10ms end-to-end │
-└─────────────┬───────────────────────────────────────────────┘
-│
-┌─────────┴─────────┐
-│ │
-▼ ▼
-┌─────────────────┐ ┌──────────────────────────┐
-│ Stream Processor│ │ Historical Data (Parquet)│
-│ (Spark/Flink) │ │ S3: 1 year transactions │
-├─────────────────┤ └──────────────────────────┘
-│ Enrich datos │ │
-│ + ML inference │ │
-│ Detect fraud │ │
-│ Latency: 200ms │ │
-└────────┬────────┘ │
-│ │
-▼ ▼
-┌─────────────────────────────────────────────────────────────┐
-│ DECISION ENGINE (Low Latency KV Store) │
-│ ├─ Redis: user profiles, ML model cache │
-│ ├─ Lookup: 1-5ms │
-│ └─ Decision: APPROVE/BLOCK/REVIEW │
-└─────────────┬───────────────────────────────────────────────┘
-│
-┌─────────┴─────────┐
-│ │
-▼ ▼
-┌──────────────┐ ┌──────────────┐
-│ ACTION: APPROVE
-│ Back to │ │ ACTION: BLOCK
-│ Merchant │ │ Send to QA │
-└──────────────┘ └──────────────┘
-│
-▼
-┌──────────────────┐
-│ KAFKA Topic: │
-│ blocked-txns │
-│ (for review) │
-└──────────────────┘
-
-text
+1. ¿Cómo diseñas el sistema?
+2. ¿Qué particiones y réplicas para Kafka?
+3. ¿Cómo manejas el estado del usuario?
+4. ¿Cómo garantizas exactamente una vez?
+5. ¿Cómo monitoreas el rendimiento?
 
 ---
 
-### Stack Tecnológico
+## Solución Propuesta
 
-| Componente | Tech | Razón | Costo |
-|-----------|------|-------|-------|
-| Message Bus | Kafka | Durabilidad, replayability | $5k/mes |
-| Streaming | Spark Streaming | Flexible, integrado | $3k/mes |
-| ML Model Store | S3 + Redis | Fast lookups | $1k/mes |
-| Decision Store | Redis | < 5ms latency | $2k/mes |
-| Monitoring | Datadog | Real-time metrics | $2k/mes |
-| **Total** | | | ~$13k/mes |
+### Arquitectura General
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  PRODUCTORES                    │
+├─────────────────────────────────────────────────────┤
+│  Web App │ Mobile App │ Payment Gateway │
+└─────────────────────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│                  KAFKA CLUSTER                        │
+├─────────────────────────────────────────────────────┤
+│ Topic: "transactions" (10 particiones, 3 réplicas)       │
+│ Topic: "events" (5 particiones, 3 réplicas)           │
+│ Topic: "user_actions" (20 particiones, 3 réplicas)         │
+└─────────────────────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│                  CONSUMIDORES                       │
+├─────────────────────────────────────────────────────┤
+│  Spark Streaming (3 ejecutores)                │
+│  Flink Streaming (2 ejecutores)                │
+└─────────────────────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│                  STORAGE                           │
+├─────────────────────────────────────────────────────┤
+│  Data Lake (S3)                               │
+│  State Stores (Redis, RocksDB)                   │
+└─────────────────────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│                  SERVICIOS                         │
+├─────────────────────────────────────────────────────┤
+│  API Gateway (decisiones de fraude)              │
+│  Dashboard (métricas en tiempo real)             │
+└─────────────────────────────────────────────────────┘
+```
+
+### Pila Tecnológica
+
+| Componente         | Tecnología           | Razón                           | Costo       |
+| ------------------ | -------------------- | ------------------------------- | ----------- |
+| **Productores**    | Java/Kafka Producer  | Alto rendimiento, idioma nativo | $1k/mes     |
+| **Broker**         | Apache Kafka         | Durabilidad, escalabilidad      | $2k/mes     |
+| **Consumidores**   | Spark Streaming      | Procesamiento distribuido       | $3k/mes     |
+| **Almacenamiento** | S3 + Redis           | Durabilidad, escalable          | $1.5k/mes   |
+| **Estado**         | Redis                | Acceso rápido a estado          | $0.5k/mes   |
+| **Monitoreo**      | Prometheus + Grafana | Métricas en tiempo real         | $0.5k/mes   |
+| **Total**          |                      |                                 | **$8k/mes** |
 
 ---
 
-### Pipeline Detallado
+### Flujo de Datos
 
-T=0ms: Transaction arrives at API
-└─ Merchant: "Is this legit?"
+```
+Productor → Kafka (Topic: transactions)
+└─ Transacción completada con transaction_id, timestamp, user_id, amount
+└─ Incluye metadatos: device_id, IP, user_agent
 
-T=1ms: Event published to Kafka
-├─ Partition: hash(user_id) → consistencia
-└─ Replication: 3 copies (durabilidad)
+Kafka (Topic: transactions)
+└─ Particionado por transaction_id (hash)
+└─ 3 réplicas para durabilidad
+└─ Retención: 7 días (para análisis)
 
-T=10ms: Stream processor reads from Kafka
-├─ Lookup user profile (Redis): "Has this user done this before?"
-├─ Enrich: amount, merchant category, location
-└─ Prepare features for ML
-
-T=50ms: ML Model inference
-├─ Load model (cached in memory)
-├─ Score: fraud_probability = 0.85
-├─ Decision: IF > 0.8 THEN REVIEW
-└─ Result: Send to decision engine
-
-T=100ms: Decision engine query Redis
-├─ User risk profile: "HIGH"
-├─ Similar fraud patterns: YES
-└─ FINAL DECISION: BLOCK
-
-T=150ms: Return to merchant
-├─ Response: DECLINED
-└─ Reason: "Suspicious activity detected"
-
-T=151ms: Log to Kafka topic "blocked-transactions"
-└─ For human review team
-
-T=200ms: End-to-end latency = 200ms ✓ (< 500ms SLA)
-
-text
+Consumidor Spark
+└─ Lee de Kafka (desde el último offset)
+└─ Parsea JSON a objetos
+└─ Enriquece con datos del usuario (desde Redis)
+└─ Aplica modelo de fraude
+└─ Escribe decisiones a Kafka (topics: approved/blocked)
+```
 
 ---
 
-### Code: Spark Streaming Processor
+### Configuración de Kafka
 
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, from_json, to_json
-from pyspark.sql.types import StructType, StructField, StringType, DoubleType
-import redis
-import pickle
+#### Particionamiento
 
-spark = SparkSession.builder
-.appName("FraudDetection")
-.getOrCreate()
+```bash
+# Particionamiento por clave de negocio
+# transactions: particionado por transaction_id (hash)
+# user_actions: particionado por user_id (hash)
+# events: particionado por event_type
 
-===== READ from Kafka =====
-transactions_df = spark
-.readStream
-.format("kafka")
-.option("kafka.bootstrap.servers", "kafka:9092")
-.option("subscribe", "transactions")
-.option("startingOffsets", "latest")
-.load()
+# Número de particiones = (throughput_target / avg_message_size) / partitions_per_broker
+# Para 100,000 msg/min con 1KB/msg: 10 particiones
+```
 
-===== PARSE JSON =====
-schema = StructType([
-StructField("transaction_id", StringType()),
-StructField("user_id", StringType()),
-StructField("amount", DoubleType()),
-StructField("merchant_id", StringType()),
-StructField("timestamp", StringType())
+#### Réplicas y Factor de Replicación
+
+```bash
+# Factor de replicación = min(3, # brokers)
+# Para 3 brokers, 3 réplicas = 9 copias de cada partición
+# Más réplicas = mayor durabilidad pero mayor latencia de escritura
+```
+
+#### Retención
+
+```bash
+# Configuración de retención
+# transactions: 7 días (para análisis de fraude)
+# events: 3 días (para análisis de comportamiento)
+# user_actions: 30 días (para análisis de usuario)
+```
+
+---
+
+### Manejo de Estado
+
+#### Estado del Usuario
+
+```python
+# Estado en Redis (clave: user_id)
+{
+    "user_12345": {
+        "name": "John Doe",
+        "email": "john@example.com",
+        "registration_date": "2023-01-15",
+        "last_login": "2024-01-20",
+        "total_spent": 1250.50,
+        "transaction_count": 25,
+        "device_type": "mobile"
+    }
+}
+```
+
+#### Código del Consumidor
+
+```python
+from pyspark.sql.functions import col, from_json
+from pyspark.sql.types import StructType, StructField, StringType
+
+# Esquema para transacciones
+transaction_schema = StructType([
+    StructField("transaction_id", StringType()),
+    StructField("timestamp", StringType()),
+    {"name": "user_id", "type": "string"},
+    {"name": "amount", "type": "double"},
+    {"name": "device_type", "type": "string"}
 ])
 
-parsed_df = transactions_df.select(
-from_json(col("value").cast("string"), schema).alias("data")
-).select("data.*")
-
-===== ENRICH with Redis lookups =====
+# Estado del usuario en Redis
 def get_user_profile(user_id):
-redis_client = redis.Redis(host='redis', port=6379)
-profile = redis_client.get(f"user:{user_id}")
-return pickle.loads(profile) if profile else {}
+    redis_client = redis.StrictRedis(host='redis-cluster', port=6379, db=0)
+    profile_data = redis_client.get(f"user:{user_id}")
+    return json.loads(profile_data) if profile_data else None
 
-UDF for Redis lookup
-from pyspark.sql.functions import udf
-get_profile_udf = udf(get_user_profile, StringType())
-
+# Enriquecer con estado del usuario
 enriched_df = parsed_df.withColumn(
-"user_profile",
-get_profile_udf(col("user_id"))
+    "user_profile",
+    get_user_profile(col("user_id"))
 )
-
-===== ML INFERENCE =====
-from pyspark.ml import PipelineModel
-
-model = PipelineModel.load("s3://models/fraud_detection_v1")
-
-predictions_df = model.transform(enriched_df).select(
-"*",
-col("prediction").alias("fraud_score")
-)
-
-===== DECISION LOGIC =====
-decisions_df = predictions_df.withColumn(
-"decision",
-when(col("fraud_score") > 0.8, "BLOCK")
-.when(col("fraud_score") > 0.5, "REVIEW")
-.otherwise("APPROVE")
-)
-
-===== OUTPUT =====
-Approved transactions back to Kafka
-approved = decisions_df.filter(col("decision") == "APPROVE").select("")
-approved.select(to_json(struct("")).alias("value"))
-.writeStream
-.format("kafka")
-.option("kafka.bootstrap.servers", "kafka:9092")
-.option("topic", "approved-transactions")
-.option("checkpointLocation", "/tmp/checkpoint_approved")
-.start()
-
-Blocked transactions to separate topic (for review)
-blocked = decisions_df.filter(col("decision") != "APPROVE").select("")
-blocked.select(to_json(struct("")).alias("value"))
-.writeStream
-.format("kafka")
-.option("kafka.bootstrap.servers", "kafka:9092")
-.option("topic", "blocked-transactions")
-.option("checkpointLocation", "/tmp/checkpoint_blocked")
-.start()
-
-spark.streams.awaitAnyTermination()
-
-text
+```
 
 ---
 
-## Trade-offs Analizados
+### Detección de Fraude
 
-### Real-Time vs Batch
+#### Modelo de Puntuación
 
-| Aspecto | Batch | Real-Time | Elegida |
-|---------|-------|-----------|---------|
-| **Latency** | Hours | Milliseconds | Real-Time |
-| **Complexity** | Simple | Complex | Real-Time |
-| **Cost** | Low | High | Real-Time |
-| **Accuracy** | Good | Excellent | Real-Time |
-| **Use Case** | Daily reports | Fraud detection | Real-Time |
+```python
+import joblib
+import numpy as np
 
----
+class FraudDetectionModel:
+    def __init__(self, model_path):
+        self.model = joblib.load(model_path)
 
-### Kafka vs Alternatives
+    def predict(self, features):
+        proba = self.model.predict_proba(features)
+        return proba[0][0]  # Probabilidad de fraude
 
-❌ RabbitMQ:
+    def save_model(self, model_path):
+        joblib.dump(self.model, model_path)
+```
 
-Lower throughput (< 100k msg/sec)
+#### Aplicación en Streaming
 
-No durability guarantee
+```python
+from pyspark.sql.functions import col, when
 
-Uso: Traditional queues
+# Aplicar modelo de fraude
+def apply_fraud_model(df):
+    model = FraudDetectionModel("models/fraud_detection.pkl")
 
-❌ AWS Kinesis:
+    features = df.select(
+        "transaction_id",
+        "amount",
+        "device_type",
+        "hour_of_day",
+        "days_since_registration"
+    )
 
-Higher latency (~ 1 sec)
+    predictions = model.predict(features)
 
-Vendor lock-in
-
-Uso: AWS-only shops
-
-✅ KAFKA:
-
-High throughput (millions msg/sec)
-
-Durability + replayability
-
-Multi-language support
-
-Uso: Data engineering standard
-
-text
-
----
-
-## Manejo de Errores & Durability
-
-===== CHECKPOINT: Fault Tolerance =====
-Si spark job falla, retoma desde último checkpoint
-.writeStream
-.option("checkpointLocation", "s3://checkpoints/fraud")
-.start()
-
-Spark guarda offset = "leyó hasta aquí"
-Si falla: restart lee desde último offset → NO pierde datos
-===== EXACTLY-ONCE SEMANTICS =====
-Garantía: Cada mensaje procesado exactamente 1 vez
-Kafka offset management:
-1. Read from Kafka
-2. Process
-3. Write result
-4. Commit offset
-Si falla en step 3: retry desde step 1 (duplicate prevention)
-===== DEAD LETTER QUEUE =====
-Mensajes que fallan 3x van a quarantine
-def safe_process(msg):
-try:
-return enrich_and_score(msg)
-except Exception as e:
-if msg["retry_count"] >= 3:
-send_to_deadletter(msg) # quarantine
-else:
-msg["retry_count"] += 1
-return retry(msg)
-
-text
+    return df.withColumn(
+        "fraud_score",
+        predictions[0]
+    ).withColumn(
+        "decision",
+        when(col("fraud_score") > 0.8, "BLOCKED")
+        .otherwise("APPROVED")
+    )
+```
 
 ---
 
-## Scaling: 1M → 10M Transacciones/Min
+### Garantías de Entrega
 
-KAFKA:
+#### Entrega Exactamente Una Vez
 
-Brokers: 3 → 10 (más capacidad)
+```python
+# Productor con idempotencia
+def send_transaction(transaction):
+    transaction_id = generate_unique_id()
 
-Partitions: 100 → 500 (paralelismo)
+    # Verificar si ya fue enviado
+    if not transaction_exists(transaction_id):
+        producer.send('transactions', value=transaction)
+        record_transaction(transaction_id)
 
-Replication: 3 (mantén)
+    # Retornar ID para seguimiento
+    return transaction_id
+```
 
-SPARK STREAMING:
+#### Consumidor con Checkpointing
 
-Executors: 10 → 50 (más workers)
+```python
+# Checkpoint cada 100 transacciones
+checkpoint_interval = 100
 
-Batch interval: 500ms → 100ms (más frecuente)
+def process_stream():
+    df = spark.readStream
+        .format("kafka")
+        .option("kafka.bootstrap.servers", "kafka:9092")
+        .option("subscribe", "transactions")
+        .load()
 
-REDIS (ML Cache):
+    parsed_df = parse_transactions(df)
 
-Nodes: 1 → Redis Cluster (3 nodes)
+    enriched_df = enriched_df(parsed_df)
 
-Replication: Enable (HA)
+    fraud_df = apply_fraud_model(enriched_df)
 
-COST:
+    # Checkpoint cada 100 transacciones
+    query = fraud_df.writeStream
+        .format("kafka")
+        .option("kafka.bootstrap.servers", "kafka:9092")
+        .option("topic", "fraud_decisions")
+        .option("checkpointLocation", "/tmp/checkpoint")
+        .outputMode("append")
+        .trigger(processingTime="1 minute")
+        .start()
 
-$13k/mes → $40k/mes (~3x)
-
-text
+    query.awaitTermination()
+```
 
 ---
 
-## Monitoring Real-Time
+### Monitoreo
 
-===== METRICS =====
-metrics = {
-"end_to_end_latency": 150, # ms (target: < 500ms)
-"fraud_detection_rate": 0.94, # % (target: > 90%)
-"false_positive_rate": 0.02, # % (target: < 5%)
-"throughput": "16.7k msg/sec", # (actual vs expected)
-"lag": "5 sec", # Kafka consumer lag (target: < 10s)
+#### Métricas Clave
+
+```python
+# Métricas de Kafka
+kafka_producer_metrics = {
+    "record_send_rate": producer.metrics(),
+    "record_error_rate": producer.metrics()['record-error-rate'],
+    "request_latency_avg_ms": producer.metrics()['request-latency-avg']
 }
 
-ALERTS:
-if end_to_end_latency > 500:
-alert("CRITICAL: Fraud detection latency > 500ms")
-if false_positive_rate > 0.05:
-alert("WARNING: Too many false positives")
-if consumer_lag > 30:
-alert("WARNING: Processing falling behind")
+# Métricas de Consumidor
+consumer_metrics = {
+    "records_consumed_rate": consumer.metrics()['records-consumed-rate'],
+    "records_lag_max": consumer.metrics()["records-lag-max"],
+    "consumer_lag_avg": consumer.metrics()['consumer-lag-avg']
+}
 
-text
+# Métricas de Procesamiento
+processing_metrics = {
+    "processing_time_avg_ms": processing_time_avg,
+    "fraud_detection_rate": fraud_count / total_count,
+    "decision_distribution": {
+        "APPROVED": approved_count,
+        "BLOCKED": blocked_count
+    }
+}
+```
+
+#### Alertas
+
+```python
+def alert_on_metrics(metrics):
+    if metrics["consumer_lag_max"] > 10000:
+        alert("ALERT: Consumer lag too high", f"Max lag: {metrics['consumer_lag_max']}")
+
+    if metrics["processing_time_avg_ms"] > 500:
+        alert("ALERT: Processing too slow", f"Avg processing time: {metrics['processing_time_avg_ms']} ms")
+
+    if metrics["decision_distribution"]["BLOCKED"] / total_count > 0.1:
+        alert("ALERT: High block rate", f"Block rate: {metrics['decision_distribution']['BLOCKED'] / total_count}")
+```
+
+---
+
+## Escalabilidad: De 100k a 1M Transacciones/Minuto
+
+### Cambios Necesarios
+
+#### Kafka
+
+- Particiones: 10 → 20 (para mayor paralelismo)
+- Réplicas: 3 → 5 (para mayor durabilidad)
+- Brokers: 3 → 6 (para mayor rendimiento)
+
+#### Consumidores
+
+- Ejecutores de Spark: 3 → 6 (para mayor rendimiento)
+- Memoria por ejecutor: 8GB → 16GB (para manejar estado)
+
+#### Estado
+
+- Redis: 3 nodos → 6 nodos (para mayor disponibilidad)
+- Particionamiento de estado por clave (hash de user_id)
+
+#### Almacenamiento
+
+- S3: Particionamiento más granular (por hora además de fecha)
+- Lifecycle: Hot (7 días) → Warm (30 días) → Cold (S3 Glacier)
+
+---
+
+## Compromisos Analizados
+
+| Decisión             | Opción A             | Opción B            | Elección             | Razón                  |
+| -------------------- | -------------------- | ------------------- | -------------------- | ---------------------- |
+| **Particionamiento** | Por clave de negocio | Por tiempo          | Por clave de negocio | Mejor para rendimiento |
+| **Entrega**          | Al menos una vez     | Exactamente una vez | Exactamente una vez  | Garantiza consistencia |
+| **Estado**           | En memoria           | En base de datos    | En memoria           | Rápido acceso          |
+| **Costo**            | Bajo                 | Alto                | Bajo                 | Equilibrio             |
 
 ---
 
 ## Alternativas Consideradas
 
-### Alternativa 1: Batch Every Hour
+### Alternativa 1: Puro SQL (Kafka + Materialized Views)
 
-❌ Latency: 1 hour (SLA required < 500ms)
-❌ Fraud happens NOW, blocked después
-✗ No viable
+**Pros**:
 
-text
+- Simplicidad del desarrollo
+- Sin procesamiento de streaming
+- Menor costo de infraestructura
 
-### Alternativa 2: Microservices (Direct API)
+**Contras**:
 
-❌ No durability (si service cae, pierdes mensajes)
-❌ Coupling (cada service debe conocer otros)
-✗ Complex, error-prone
+- Latencia más alta (consultas SQL)
+- Menos flexibilidad para lógica compleja
 
-text
+**Decisión**: No adoptado. Los requisitos de baja latencia (<500ms) y lógica compleja de fraude justifican el procesamiento de streaming.
 
-### Alternativa 3: Lambda Architecture (Batch + Real-Time)
+### Alternativa 2: AWS Kinesis
 
-✓ Best of both worlds
-✗ Complexity + cost
-└─ Usa si: necesitas offline re-computation
+**Pros**:
 
-text
+- Totalmente gestionado
+- Integración con AWS
+
+**Contras**:
+
+- Limitaciones de tamaño de mensaje
+- Menos flexibilidad
+
+**Decisión**: No adoptado. Kafka ofrece más flexibilidad y control.
+
+### Alternativa 3: Apache Pulsar
+
+**Pros**:
+
+- Entrega garantizada
+- Baja latencia
+
+**Contras**:
+
+- Menos ecosistema maduro
+- Menos casos de uso
+
+**Decisión**: No adoptado. Kafka es más maduro y ampliamente utilizado.
 
 ---
 
 ## Errores Comunes en Entrevista
 
-- **Error**: "Voy a procesar TODO en memory" → **Solución**: Stream es infinito. Necesitas stateless o mini-batches
+- **Error**: "Kafka es solo para logs" → **Solución**: Kafka es para eventos de negocio, no solo para logs
 
-- **Error**: No manejar out-of-order events → **Solución**: Events llegan desorden (network). Necesitas watermarks
+- **Error**: "Los consumidores compiten por mensajes" → **Solución**: Los consumidores en el mismo grupo no compiten; diferentes grupos consumen todas las particiones
 
-- **Error**: No pensar en estado (user profile lookup)** → **Solución**: State stores (Redis, RocksDB) son críticos
+- **Error**: "No considerar el estado del consumidor" → **Solución**: El estado debe ser persistente y recuperable
 
-- **Error**: "Real-time siempre es mejor" → **Solución**: Batch es más simple, barato. Real-time solo si NECESARIO
-
----
-
-## Preguntas de Seguimiento
-
-1. **"¿Cómo manejas time-series data (eventos tardíos)?"**
-   - Watermarks: eventos > 1h tardío son descartados
-   - State stores: guardar estado por X tiempo
-   - Late data handling: ALLOWED_LATENESS option
-
-2. **"¿Cómo debuggeas streaming bugs?"**
-   - Logs (difícil, datos fluyen rápido)
-   - Mini-batch debugging (pausar stream)
-   - Replayability: Kafka guarda data, puedes replay
-
-3. **"¿Cómo evitas data loss?"**
-   - Kafka replication (3 copies)
-   - Spark checkpoints (offset tracking)
-   - Exactly-once semantics
-
-4. **"¿Cómo backfillas datos si model cambia?"**
-   - Re-procesar histórico desde Kafka
-   - Spark batch job (lee Kafka desde T0, vuelve a procesar)
+- **Error**: "Ignorar la gestión de offsets" → **Solución**: Los offsets son críticos para la recuperación tras fallos
 
 ---
 
-## References
+## Preguntas de Seguimiento Típicas
 
-- [Kafka Architecture - Apache Docs](https://kafka.apache.org/documentation/)
-- [Spark Structured Streaming - Databricks](https://docs.databricks.com/en/structured-streaming/index.html)
-- [Real-Time Fraud Detection - Netflix](https://netflixtechblog.com/)
+1. **"¿Cómo manejas el desorden de los eventos?"**
+   - Particionar por clave de negocio para mantener el orden
+   - Usar marcas de tiempo para manejar eventos tardíos
 
+2. **"¿Cómo garantizas exactamente una vez?"**
+   - Productor con idempotencia
+   - Consumidor con checkpoints
+   - Claves únicas en la tabla de hechos
+
+3. **"¿Cómo manejas el estado del consumidor si falla?"**
+   - Recuperar desde el último checkpoint
+   - El estado debe ser persistente
+
+4. **"¿Cómo escalas a 10M transacciones/minuto?"**
+   - Más particiones y réplicas
+   - Más consumidores
+   - Estado particionado
+
+---
+
+## Referencias
+
+- [Apache Kafka Documentation](https://kafka.apache.org/documentation/)
+- [Stream Processing with Apache Flink](https://flink.apache.org/)

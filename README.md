@@ -33,9 +33,9 @@ Repositorio completo de **preguntas de Data Engineering** cubriendo SQL, PySpark
 ### Para Principiantes / Mid-Level
 
 1. Comienza con **SQL** (fundamentals)
-2. Luego **PySpark** (core tool)
-3. **System Design** (ver el big picture)
-4. **Python/DSA** (language skills)
+2. **Python/DSA** (language skills)
+3. Luego **PySpark** (core tool)
+4. **System Design** (ver el big picture)
 
 ### Para Seniors
 
@@ -119,6 +119,7 @@ Cada pregunta sigue este patrón:
 - [Data Engineering Roadmap x roadmap.sh](https://roadmap.sh/data-engineer)
 - [Awesome Data Engineering GitHub Repo](https://github.com/igorbarinov/awesome-data-engineering)
 - [Data Engineering Roadmap x DataExpert.io](https://blog.dataexpert.io/p/the-2025-breaking-into-data-engineering-roadmap)
+- https://de101.startdataengineering.com/
 
 ### 💬 Comunidades
 

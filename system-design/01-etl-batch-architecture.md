@@ -1,35 +1,40 @@
-# Diseñar ETL Pipeline Batch: Arquitectura a Escala
+# Diseñar Pipeline ETL Batch: Arquitectura a Escala
 
-**Tags**: #system-design #etl #batch #architecture #real-interview  
-**Empresas**: Amazon, Google, Meta, Databricks  
-**Dificultad**: Senior  
-**Tiempo estimado**: 30 min  
+**Tags**: #system-design #etl #batch #architecture #real-interview
 
 ---
 
 ## TL;DR
 
-ETL batch = Extract (fuente) → Transform (proceso) → Load (destino), ejecuta en horarios (diario, horario). Arquitectura: Data Lake (raw) → Processing (Spark) → Data Warehouse (analytics). Key decisions: Spark vs SQL, Partitioning, Incremental vs Full, Scheduling (Airflow/Cron), Monitoring. Trade-off: Simplicidad vs Performance vs Costo.
+ETL batch = Extraer (fuente) → Transformar (proceso) → Cargar (destino), ejecutado en horarios (diario, horario). Arquitectura: Data Lake (raw) → Procesamiento (Spark) → Data Warehouse (analytics). Decisiones clave: Spark vs SQL, Particionamiento vs Completo, Incremental vs Completo, Programación (Airflow/Cron) vs Monitoreo. Compromiso: Complejidad vs Rendimiento vs Costo.
+
+---
+
+## Concepto Core
+
+- **Qué es**: Pipeline batch que procesa datos en lotes en lugar de en tiempo real
+- **Por qué importa**: Fundamental para la analítica empresarial. Demuestra comprensión de arquitectura de datos a gran escala
+- **Principio clave**: El diseño depende del volumen de datos, la latencia requerida y los costos de infraestructura
 
 ---
 
 ## Problema Real
 
-**Escenario:**
+**Escenario**:
 
 - E-commerce con 1 millón de transacciones/día
-- 50+ fuentes de datos (databases, APIs, S3, Kafka)
-- Necesitas reporte consolidado cada mañana
-- Analytics team (5 personas) + 2 data engineers
-- Budget: $10k/mes cloud infrastructure
+- 50+ fuentes de datos (bases de datos, APIs, S3)
+- Necesita informe consolidado cada mañana
+- Equipo de analítica (5 personas) + 2 ingenieros de datos
+- Presupuesto: $10,000/mes en infraestructura en la nube
 
-**Preguntas:**
+**Preguntas**:
 
 1. ¿Cómo diseñas el pipeline?
 2. ¿Qué tecnologías usas (Spark? SQL? Serverless?)?
-3. ¿Cómo manejas freshness de datos?
-4. ¿Cómo monitoreás si algo falla?
-5. ¿Cómo escalas a 10M transacciones/día?
+3. ¿Cómo manejas la frescura de los datos?
+4. ¿Cómo monitoreas si algo falla?
+5. ¿Cómo escalas a 10 millones de transacciones/día?
 
 ---
 
@@ -37,266 +42,214 @@ ETL batch = Extract (fuente) → Transform (proceso) → Load (destino), ejecuta
 
 ### Arquitectura (3 Capas)
 
-┌─────────────────────────────────────────────────────────────┐
-│ SOURCES (50+ systems) │
-│ ├─ Databases (MySQL, PostgreSQL) │
-│ ├─ APIs (3rd party services) │
-│ ├─ S3 (batch files) │
-│ └─ Kafka (real-time streams, pero batch consume) │
-└─────────────────────┬───────────────────────────────────────┘
-│
-▼
-┌─────────────────────────────────────────────────────────────┐
-│ RAW LAYER (Data Lake - S3) │
-│ ├─ s3://data-lake/raw/mysql/customers/date=2024-01-15/ │
-│ ├─ s3://data-lake/raw/api/payments/date=2024-01-15/ │
-│ ├─ s3://data-lake/raw/s3/events/date=2024-01-15/ │
-│ └─ Landing zone (sin procesamiento) │
-└─────────────────────┬───────────────────────────────────────┘
-│
-▼
-┌─────────────────────────────────────────────────────────────┐
-│ PROCESSING LAYER (Spark on EMR/Databricks) │
-│ ├─ Validación (NULL handling, duplicates) │
-│ ├─ Transformación (joins, aggregations) │
-│ ├─ Enriquecimiento (add business logic) │
-│ └─ Output → Processed (s3://data-lake/processed/) │
-└─────────────────────┬───────────────────────────────────────┘
-│
-▼
-┌─────────────────────────────────────────────────────────────┐
-│ WAREHOUSE LAYER (Redshift/BigQuery) │
-│ ├─ Dimensional tables (customers, products, etc.) │
-│ ├─ Fact tables (transactions, events) │
-│ └─ Ready for analytics/BI tools │
-└─────────────────────────────────────────────────────────────┘
-│
-▼
-┌─────────────────────────────────────────────────────────────┐
-│ ANALYTICS LAYER │
-│ ├─ Dashboards (Tableau, Looker) │
-│ ├─ Reports (automated daily) │
-│ └─ Self-service queries (analysts) │
-└─────────────────────────────────────────────────────────────┘
+```
+┌─────────────────────────────────────────────────────┐
+│                FUENTES DE DATOS (50+ sistemas)      │
+├─────────────────────────┬───────────────────────────┤
+│  Bases de datos      │ APIs      │ S3 (archivos)       │
+│  (MySQL, PostgreSQL) │ (REST, SOAP) │ (CSV, JSON, logs)   │
+└─────────────────────────┴───────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│              DATA LAKE (crudo) (S3)             │
+├─────────────────────────────────────────────────────┤
+│  s3://data-lake/raw/mysql/customers/date=2024-01-15/ │
+│  s3://data-lake/raw/api/payments/date=2024-01-15/ │
+│  s3://data-lake/raw/s3/logs/date=2024-01-15/   │
+└─────────────────────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│            PROCESAMIENTO (Spark en EMR/Databricks)   │
+├─────────────────────────────────────────────────────┤
+│  Validación (manejo de nulos, detección de duplicados) │
+│  Transformación (joins, agregaciones)            │
+│ Enriquecimiento (lógica de negocio)                │
+│  Salida a s3://data-lake/processed/             │
+└─────────────────────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│            ALMACÉN DE DATOS (Redshift/BigQuery)    │
+├─────────────────────────────────────────────────────┤
+│  Tablas dimensionales (clientes, productos)      │
+│  Tablas de hechos (transacciones, eventos)     │
+│  Vistas materializadas para informes           │
+└─────────────────────────────────────────────────────┘
+```
 
-text
+### Pila Tecnológica
 
----
-
-### Stack Tecnológico
-
-| Componente | Tecnología | Por Qué | Costo |
-|-----------|-----------|--------|--------|
-| **Orquestación** | Apache Airflow | DAG visibility, retries, monitoring | $1k/mes |
-| **Processing** | Spark (EMR) | Distribuido, flexible, costo-efectivo | $3k/mes |
-| **Storage (Raw)** | S3 | Económico, escalable, durable | $1k/mes |
-| **Warehouse** | Redshift | Integrado, queries rápidas, comodin | $4k/mes |
-| **Monitoring** | CloudWatch + DataDog | Alertas, logs, metrics | $1k/mes |
-| **Total** | | | ~$10k/mes ✓ |
+| Componente                   | Tecnología           | ¿Por qué?                                                      | Costo        |
+| ---------------------------- | -------------------- | -------------------------------------------------------------- | ------------ |
+| **Orquestación**             | Apache Airflow       | Visibilidad de DAG, reintentos, monitoreo                      | $1k/mes      |
+| **Procesamiento**            | Spark en EMR         | Distribuido, escalable, compatible con Python/Scala            | $3k/mes      |
+| **Almacenamiento crudo**     | Amazon S3            | Económico, duradero, escalable                                 | $1k/mes      |
+| **Almacenamiento procesado** | Amazon S3            | Económico para datos procesados                                | $0.5k/mes    |
+| **Almacén analítico**        | Amazon Redshift      | Rendimiento para consultas, integración con herramientas de BI | $4k/mes      |
+| **Monitoreo**                | CloudWatch + DataDog | Alertas, métricas, registros                                   | $0.5k/mes    |
+| **Total**                    |                      |                                                                | **$10k/mes** |
 
 ---
 
 ### Pipeline Diario: Ejecución
 
-05:00 AM - START: Airflow scheduler despierta
-├─ Task 1: Extraer de MySQL (incremental: Δ últimas 24h)
-├─ Task 2: Extraer de APIs (retry 3x si falla)
-├─ Task 3: Descargar S3 files (con validation)
-└─ Pause en Task 4 si Task 1-3 fallan
+05:00 AM - INICIO: Programador de Airflow activa DAG
 
-06:00 AM - TRANSFORM: Spark EMR cluster
-├─ Spark job 1: Validar data (NULLs, duplicates, schema)
-├─ Spark job 2: Join customers + orders + payments
-├─ Spark job 3: Aggregate hourly → daily metrics
-└─ Spark job 4: Write to Processed (partitioned)
+```
+Tarea 1: Extracción incremental de MySQL
+├─ Extraer transacciones de las últimas 24 horas
+├─ WHERE updated_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+├─ Salida a s3://data-lake/raw/mysql/transactions/date=2024-01-15/
 
-07:00 AM - LOAD: Transfer a Redshift
-├─ COPY customers from s3://processed/customers/
-├─ COPY orders from s3://processed/orders/
-├─ COPY transactions from s3://processed/transactions/
-└─ Refresh warehouse views
+Tarea 2: Extracción de APIs
+├─ Extraer pagos de API de pagos con reintentos (3x)
+├─ Salida a s3://data-lake/raw/api/payments/date=2024-01-15/
 
-08:00 AM - VALIDATE: Data quality checks
-├─ Row count validations (vs yesterday ±5%)
-├─ NULL % checks
-├─ Freshness checks (arrival time)
-└─ Alert si falla algo
+Tarea 3: Descarga de archivos S3
+├─ Descargar archivos de logs del día anterior
+├─ Salida a s3://data-lake/raw/s3/logs/date=2024-01-15/
 
-09:00 AM - READY: Dashboards refresh
-└─ Analytics team accede a datos frescos
+Tarea 4: PROCESAMIENTO (Spark)
+├─ Leer datos crudos de S3
+├─ Validar datos (nulos, duplicados)
+├─ Transformar (joins, agregaciones)
+├─ Enriquecer (lógica de negocio)
+├─ Salida a s3://data-lake/processed/date=2024-01-15/
 
-text
+Tarea 5: CARGA (Redshift)
+├─ Copiar datos procesados a tablas de Redshift
+├─ Actualizar vistas materializadas
+├─ Invalidar caché de consultas
 
----
+Tarea 6: VALIDACIÓN DE CALIDAD DE DATOS
+├─ Verificar conteos de filas (vs. día anterior ±5%)
+├─ Verificar porcentajes de nulos
+├─ Verificar duplicados
+├─ Enviar alertas si hay problemas
 
-### Key Design Decisions
-
-#### Decision 1: Incremental vs Full Load
-
-❌ FULL LOAD (No recomendado para este caso)
-
-Re-procesar TODO cada día (50M rows + 50 sources)
-
-Tiempo: 4+ horas (demasiado)
-
-Costo: Alto (mucho compute)
-
-✅ INCREMENTAL (Recomendado)
-
-Solo procesar cambios de últimas 24h
-
-MySQL: WHERE updated_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
-
-APIs: Pedir "last modified after X timestamp"
-
-Tiempo: 30-45 min (factible)
-
-Costo: Bajo (menos datos)
-
-text
-
-**Trade-off:** Incremental = más complejo (manejar updates/deletes), pero Performance >> Full Load.
+06:00 AM - FIN: Pipeline completado, informes listos para análisis
+```
 
 ---
 
-#### Decision 2: Spark Cluster Setup
+### Decisiones de Diseño Clave
 
-❌ On-Demand (payg por hora)
+#### 1. Spark vs SQL
 
-Flexible pero caro si spike
+**Spark** (Elegido):
 
-Ideal: testing, exploratorio
+- Transformaciones complejas (UDFs, lógica personalizada)
+- Procesamiento de grandes volúmenes (terabytes)
+- Flexibilidad con Python/Scala
 
-✅ Reserved Instances (RI, prepaid)
+**SQL** (Limitado a):
 
-1 año commitment → 30% discount
+- Transformaciones simples (donde el SQL es suficiente)
+- Cargas directas cuando no se necesita lógica compleja
 
-Cluster siempre activo
+#### 2. Particionamiento vs. Completitud
 
-Ideal: pipeline predecible (diario)
+**Particionamiento** (Elegido):
 
-✅ Spot Instances (mezcla)
+- Datos particionados por fecha para el paralelismo
+- `s3://data-lake/processed/date=YYYY-MM-DD/`
+- Permite que Spark procese solo datos del día actual
 
-Nodo master: On-Demand (estable)
+**Completitud** (No utilizado):
 
-Nodos worker: Spot (50% discount)
+- Sería necesario si los datos no tienen una partición natural
+- Más complejo de gestionar
 
-Riesgo: Spot puede terminar, pero OK si retry
+#### 3. Incremental vs. Completo
 
-text
+**Incremental** (Elegido):
 
-**Para este caso:** Reserved (master) + Spot (workers) = balance costo/reliability.
+- Solo procesa datos de las últimas 24 horas
+- Más rápido y rentable
+- Requiere seguimiento de marcas de agua/high watermarks
+
+**Completo** (No utilizado):
+
+- Procesaría todos los datos cada día
+- Más lento y costoso
+- Sería necesario para correcciones de datos históricos
+
+#### 4. Programación: Airflow vs. Cron
+
+**Airflow** (Elegido):
+
+- Visibilidad del flujo de trabajo (DAG)
+- Reintentos automáticos en caso de fallo
+- Monitoreo integrado
+
+**Cron** (No utilizado):
+
+- Más simple pero menos resistente a fallos
+- Sin visibilidad del flujo de trabajo
+- Sin reintentos automáticos
 
 ---
 
-#### Decision 3: Retry Strategy
+### Monitoreo y Alertas
 
-Pipeline failures = inevitables (network, source outage, etc.)
-
-Task 1 (Extract MySQL):
-├─ Retry 1: Esperar 5 min, reintentar
-├─ Retry 2: Esperar 15 min, reintentar
-├─ Retry 3: Esperar 60 min, reintentar
-└─ Si falla 3x: Alert + manual intervention
-
-Task 2-4 (Transform/Load):
-├─ Solo retry inmediato (no retry tardío)
-└─ Si falla: Rollback warehouse changes
-
-Filosofía: Tolera failures transitorios (network blip), fail-fast en lógica
-
-text
-
----
-
-### Monitoring & Alerting
-
-Pseudocódigo: checks ejecutados post-pipeline
+```python
+# Validaciones post-pipeline
 class DataQualityChecks:
-def row_count_validation(self, table, yesterday_count):
-today_count = get_count(table)
-pct_change = abs((today_count - yesterday_count) / yesterday_count) * 100
+    def row_count_validation(self, table, yesterday_count):
+        today_count = get_count(table)
+        pct_change = abs((today_count - yesterday_count) / yesterday_count) * 100
 
-text
-    if pct_change > 10:  # +/- 10% es threshold
-        alert("Row count variance", f"{table}: {pct_change}%")
+        if pct_change > 10:  # +/- 10% es el umbral
+            alert(f"Row count variance", f"{table}: {pct_change}%")
 
-def freshness_check(self, table):
-    max_timestamp = get_max_timestamp(table)
-    hours_old = (now() - max_timestamp).hours
-    
-    if hours_old > 2:  # Datos no frescos
-        alert("Data freshness", f"{table}: {hours_old} hours old")
+    def null_percentage_validation(self, table, column, threshold=5):
+        null_pct = get_null_percentage(table, column)
 
-def null_percentage(self, table, column, threshold=5):
-    null_pct = get_null_percent(table, column)
-    
-    if null_pct > threshold:
-        alert("Null percentage", f"{table}.{column}: {null_pct}%")
+        if null_pct > threshold:
+            alert(f"Null percentage", f"{table}.{column}: {null_pct}%")
 
-def duplicate_check(self, table, key_cols):
-    dups = count_duplicates(table, key_cols)
-    
-    if dups > 0:
-        alert("Duplicates detected", f"{table}: {dups} duplicate rows")
-text
+    def duplicate_check(self, table, key_cols):
+        dups = count_duplicates(table, key_cols)
+
+        if dups > 0:
+            alert(f"Duplicates detected", f"{table}: {dups} duplicate rows")
+```
 
 ---
 
-### Scaling: 1M → 10M Transacciones/Día
+### Escalabilidad: De 1M a 10M Transacciones/Día
 
-**Cambios necesarios:**
+**Cambios necesarios**:
 
-COMPUTE:
+1. **Procesamiento**:
+   - Cluster de Spark: 8 → 20 nodos trabajadores
+   - Memoria por trabajador: 8GB → 16GB
+   - Paralelismo aumentado
 
-Spark cluster: 8 workers → 20 workers (parallelismo ↑)
+2. **Almacenamiento**:
+   - S3: Particionamiento más granular (por hora además de fecha)
+   - Redshift: Más nodos (2 → 4)
+   - Almacenamiento en capas frías para datos antiguos
 
-Memory per worker: 8GB → 16GB
+3. **Programación**:
+   - Airflow: Más trabajadores de Airflow
+   - Ejecución paralela de tareas
+   - Colas de tareas para optimizar la ejecución
 
-STORAGE:
-
-S3 → S3 + Glacier (archive old data)
-
-Redshift: 128GB → 512GB (más nodos)
-
-PROCESSING:
-
-Pipeline time: 30 min → 1.5h (OK, < 24h window)
-
-Batch size: Reducir para memory
-
-COST:
-
-$10k/mes → $25k/mes (2.5x, pero lineal no exponencial)
-
-text
-
-**Architectural changes:**
-
-Si crecer a 100M/día (imposible con batch diario):
-
-Cambiar a HYBRID: Batch + Streaming
-
-Raw → Kafka (real-time ingest)
-
-Late-arriving updates: Upsert con CDC pattern
-
-Warehouse: Usar partitioning + clustering
-
-text
+4. **Costos**:
+   - Presupuesto aumentaría a ~$25k/mes
+   - Justificación: Mayor volumen de datos requiere mayor inversión
 
 ---
 
-## Trade-offs Analizados
+## Compromisos Analizados
 
-| Decision | Opción A | Opción B | Elegida | Por Qué |
-|----------|----------|----------|---------|---------|
-| **Batch vs Real-Time** | Batch | Real-Time | Batch | Simpler, 1M/día = OK |
-| **Full vs Incremental** | Full Load | Incremental | Incremental | Performance |
-| **Spark vs SQL** | Spark | SQL | Spark | Flexibility, UDFs |
-| **Cloud vs On-Prem** | Cloud | On-Prem | Cloud | Cost, scalability |
-| **Airflow vs Cron** | Airflow | Cron | Airflow | Monitoring, DAG |
-| **Redshift vs BigQuery** | Redshift | BigQuery | Redshift | Cost at this scale |
+| Decisión             | Opción A    | Opción B  | Elección    | Por qué                     |
+| -------------------- | ----------- | --------- | ----------- | --------------------------- |
+| **Procesamiento**    | Spark       | SQL       | Spark       | Transformaciones complejas  |
+| **Particionamiento** | Por fecha   | Por clave | Por fecha   | Datos con partición natural |
+| **Carga**            | Incremental | Completa  | Incremental | Eficiencia para 1M/día      |
+| **Programación**     | Airflow     | Cron      | Airflow     | Monitoreo y reintentos      |
+| **Almacenamiento**   | S3          | HDFS      | S3          | Costo-efectividad           |
 
 ---
 
@@ -304,80 +257,84 @@ text
 
 ### Alternativa 1: Serverless (AWS Glue)
 
-✓ No manage clusters
-✓ Auto-scaling
-✗ Menos control
-✗ Más caro para este volumen
-✗ Cold start latency
+**Pros**:
 
-Recomendación: Solo si <100GB/día
+- Sin administración de clúster
+- Pago por uso real
 
-text
+**Contras**:
 
-### Alternativa 2: Pure Real-Time (Kafka → Flink)
+- Límites de tiempo de ejecución
+- Menos control sobre el entorno
 
-✓ Data freshness: Milliseconds
-✓ No batch delays
-✗ Mucho más complejo
-✗ 3-5x más caro
-✗ 24/7 infrastructure
+**Decisión**: No adoptado. Para 1M transacciones/día, se necesita control total sobre el procesamiento.
 
-Recomendación: Solo si "live" dashboard necesario
+### Alternativa 2: Puro SQL (Redshift Spectrum)
 
-text
+**Pros**:
 
-### Alternativa 3: Data Warehouse as Source (no Data Lake)
+- Sin transferencia de datos a S3
+- Procesamiento más rápido
 
-✓ Simpler (no S3)
-✗ Perdés raw data (compliance issue)
-✗ Less flexible
+**Contras**:
 
-Recomendación: NO, Data Lake pattern es mejor
+- Límites de tamaño de consulta
+- Menos flexibilidad para transformaciones complejas
 
-text
+**Decisión**: No adoptado. Las transformaciones complejas requieren la flexibilidad de Spark.
+
+### Alternativa 3: Híbrido: Lambda + Kappa
+
+**Pros**:
+
+- Velocidad para datos críticos
+- Corrección eventual a través de Kappa
+
+**Contras**:
+
+- Mayor complejidad operativa
+- Costos más altos
+
+**Decisión**: No adoptado. La arquitectura batch actual es suficiente para las necesidades de latencia.
 
 ---
 
 ## Errores Comunes en Entrevista
 
-- **Error**: "Voy a usar Hadoop/MapReduce" → **Solución**: Spark es newer, faster, simpler. Hadoop es legacy
-
-- **Error**: "Voy a procesar TODO cada día" → **Solución**: Incremental es más eficiente. Entiende trade-off
-
-- **Error**: No pensar en monitoring/alerting → **Solución**: Production pipeline SIN alerts = disaster. Data quality es parte critical
-
-- **Error**: "Real-time es siempre mejor" → **Solución**: Real-time = complejo, caro. Batch es simple, sufficient para 1M/día
+- **Error**: "Usar Hadoop/MapReduce" → **Solución**: Spark es más nuevo, más rápido y más fácil de usar
+- **Error**: "Procesar TODO cada día" → **Solución**: El procesamiento incremental es más eficiente
+- **Error**: "No monitorear la calidad de los datos" → **Solución**: Las validaciones automatizadas son críticas
+- **Error**: "Ignorar los costos de infraestructura" → **Solución**: El equilibrio entre rendimiento y costo es clave
 
 ---
 
-## Preguntas de Seguimiento
+## Preguntas de Seguimiento Típicas
 
-1. **"¿Cómo manejas late-arriving data?"**
-   - Ventana de retrazo (aceptar updates 48h tardío)
-   - Upsert en warehouse (CDC pattern)
-   - Trigger recompute de aggregations
+1. **"¿Cómo manejas los datos que llegan tarde?"**
+   - Ventanas de retraso con períodos de gracia
+   - Vistas materializadas actualizadas periódicamente
+   - Marca de tiempo en los eventos
 
-2. **"¿Qué pasa si source database falla?"**
-   - Retry strategy (exponential backoff)
-   - Fallback a snapshot anterior si available
-   - Alert: Manual intervention
+2. **"¿Cómo coordinas con 50 equipos de fuentes de datos?"**
+   - Contratos de nivel de servicio (SLA) para la disponibilidad de datos
+   - Matriz de propiedad (quién es responsable de qué fuente)
+   - Bucle de retroalimentación para equipos que no cumplen
 
-3. **"¿Cómo coordinas con 50+ source teams?"**
-   - SLA contract (cuándo datos disponibles)
-   - Ownership matrix (quién es responsible)
-   - Feedback loop (si break, ellos saben
+3. **"¿Cómo manejas los cambios en el esquema?"**
+   - Evolución del esquema (versionado de esquemas)
+   - Procesamiento compatible con versiones anteriores y nuevas
+   - Vistas en la capa de almacenamiento de datos para abstraer la complejidad
 
-4. **"¿Cómo presupuestas/monitoreás costo?"**
-   - Budget alert si exceed $10k
-   - Tag resources (cost center)
-   - Reserved instances para committed spend
+4. **"¿Cómo optimizas el rendimiento de Redshift?"**
+   - Claves de distribución adecuadas
+   - Clasificación de almacenamiento
+   - Compresión de columnas
+   - Vistas materializadas para consultas frecuentes
 
 ---
 
-## References
+## Referencias
 
-- [AWS EMR + Spark Architecture](https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-architecture.html)
-- [Apache Airflow DAG Scheduling](https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html)
-- [ETL Best Practices - Databricks](https://docs.databricks.com/solutions/etl.html)
-- [Data Lake Architecture - AWS](https://aws.amazon.com/architecture/datalake/)
-
+- [AWS EMR + Spark Architecture](https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-spark.html)
+- [Apache Airflow Documentation](https://airflow.apache.org/docs/apache-airflow/stable/index.html)
+- [Redshift Best Practices](https://docs.aws.amazon.com/redshift/latest/dg/tuning-best-practices.html)

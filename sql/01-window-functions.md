@@ -1,9 +1,6 @@
-# Window Functions en SQL
+# Funciones de Ventana en SQL
 
-**Tags**: #sql #window-functions #intermediate  
-**Empresas**: Amazon, Apple, Adobe  
-**Dificultad**: Mid  
-**Tiempo estimado**: 15 min  
+**Tags**: #sql #window-functions #intermediate
 
 ---
 
@@ -27,7 +24,8 @@ Las funciones de ventana (window functions) permiten calcular valores sobre un c
 
 **"OVER es la clave"** — Sin `OVER()`, es una función agregada normal. Con `OVER()`, es una window function.
 
-Ejemplo mental: 
+Ejemplo mental:
+
 - `SUM(salary)` → Te da 1 número
 - `SUM(salary) OVER()` → Te da el suma total EN CADA FILA
 
@@ -40,6 +38,7 @@ Ejemplo mental:
 
 **Paso 2: Explica OVER()**
 "La cláusula OVER() define qué filas participan en el cálculo:
+
 - `PARTITION BY`: Agrupa lógicamente (como GROUP BY pero sin colapsar)
 - `ORDER BY`: Define el orden (importante para RANK, LAG, etc.)"
 
@@ -51,28 +50,27 @@ Ejemplo mental:
 
 ## Código/Query ejemplo
 
+```sql
 -- Pregunta: "Encuentra el salario más alto por departamento
 -- pero mantén todas las filas"
 
 SELECT
-employee_id,
-name,
-department,
-salary,
-MAX(salary) OVER (PARTITION BY department) AS dept_max_salary,
-ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC) AS rank_in_dept
+    employee_id,
+    name,
+    department,
+    salary,
+    MAX(salary) OVER (PARTITION BY department) AS dept_max_salary,
+    ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC) AS rank_in_dept
 FROM employees
 ORDER BY department, salary DESC;
-
-text
+```
 
 **Resultado:**
-employee_id | name | department | salary | dept_max | rank
-1 | Alice | Sales | 50000 | 60000 | 2
-2 | Bob | Sales | 60000 | 60000 | 1
-3 | Charlie| IT | 80000 | 80000 | 1
-
-text
+| employee_id | name | department | salary | dept_max | rank |
+|---|---|---|---|---|---|
+| 1 | Alice | Sales | 50000 | 60000 | 2 |
+| 2 | Bob | Sales | 60000 | 60000 | 1 |
+| 3 | Charlie| IT | 80000 | 80000 | 1 |
 
 ---
 
@@ -88,16 +86,16 @@ text
 
 ## Preguntas de seguimiento típicas
 
-1. "¿Cuál es la diferencia entre `ROW_NUMBER()`, `RANK()` y `DENSE_RANK()`?"
+1. **"¿Cuál es la diferencia entre `ROW_NUMBER()`, `RANK()` y `DENSE_RANK()`?"**
    - ROW_NUMBER: 1, 2, 3, 4
    - RANK: 1, 2, 2, 4 (salta después de empate)
    - DENSE_RANK: 1, 2, 2, 3 (no salta)
 
-2. "¿Cómo optimizarías un query con múltiples window functions?"
+2. **"¿Cómo optimizarías un query con múltiples window functions?"**
    - Usa una sola ventana cuando sea posible
    - Cuidado con la complejidad O(n log n)
 
-3. "¿Cuándo usarías `LAG()` o `LEAD()`?"
+3. **"¿Cuándo usarías `LAG()` o `LEAD()`?"**
    - LAG: Acceder a fila anterior
    - LEAD: Acceder a fila siguiente
    - Caso de uso: Calcular diferencia mes-a-mes
@@ -108,4 +106,3 @@ text
 
 - [Window Functions en SQL - Documentación PostgreSQL](https://www.postgresql.org/docs/current/tutorial-window.html)
 - [SQL Window Functions - Mode Analytics](https://mode.com/sql-tutorial/sql-window-functions/)
-

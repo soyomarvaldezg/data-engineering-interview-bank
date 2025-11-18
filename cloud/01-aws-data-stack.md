@@ -1,18 +1,15 @@
 # AWS Data Stack para Data Engineering
 
-**Tags**: #cloud #aws #s3 #redshift #emr #lambda #real-interview  
-**Empresas**: Amazon, Google, Meta, Netflix, Stripe  
-**Dificultad**: Mid  
-**Tiempo estimado**: 22 min
+**Tags**: #cloud #aws #s3 #redshift #emr #lambda #real-interview
 
 ---
 
 ## TL;DR
 
 AWS data stack: **S3 (storage)** → **EC2/EMR (compute)** → **Redshift (warehouse)** → **Lambda (functions)**  
-Key services: S3 (cheap, durable), EMR (Spark managed), Redshift (OLAP warehouse), Lambda (serverless), Glue (ETL), Kinesis (streaming)  
-Trade-off: Cost vs Convenience vs Control.  
-Best: S3 for storage, EMR for batch, Redshift for analytics.
+Servicios clave: S3 (barato, duradero), EMR (Spark managed), Redshift (OLAP warehouse), Lambda (serverless), Glue (ETL), Kinesis (streaming)  
+Trade-off: Costo vs Conveniencia vs Control.  
+Mejor: S3 para storage, EMR para batch, Redshift para analytics.
 
 ---
 
@@ -29,7 +26,7 @@ Best: S3 for storage, EMR for batch, Redshift for analytics.
 1. "AWS data stack = S3 (storage) + EMR (compute) + Redshift (warehouse)"
 2. "S3 es data lake. EMR corre Spark. Redshift es warehouse. Separación = flexible"
 3. "Alternativas: Glue (managed ETL), Lambda (serverless), Kinesis (streaming)"
-4. "Trade-off: Control/Flexibility vs Convenience vs Cost"
+4. "Trade-off: Control/Flexibilidad vs Conveniencia vs Costo"
 
 ---
 
@@ -98,13 +95,13 @@ Best: S3 for storage, EMR for batch, Redshift for analytics.
 
 ---
 
-## Key Services
+## Servicios Clave
 
 ### 1. S3 (Simple Storage Service)
 
-**What:** Object storage (blobs, not files)  
-**Why:** Cheap ($0.023/GB/month), durable (99.999999999%), scalable  
-**Cons:** Eventually consistent, latency ≈100ms
+**Qué:** Object storage (blobs, no files)  
+**Por qué:** Barato ($0.023/GB/month), duradero (99.999999999%), escalable  
+**Contras:** Eventually consistent, latencia ≈100ms
 
 **Pricing:**
 
@@ -116,26 +113,26 @@ Best: S3 for storage, EMR for batch, Redshift for analytics.
 
 ```
 s3://bucket/path/object
-├─ Bucket: Namespace (unique globally)
-├─ Path: Folder-like structure (not real folders)
-└─ Object: Actual file
+├─ Bucket: Namespace (único globalmente)
+├─ Path: Estructura tipo folder (no folders reales)
+└─ Object: Archivo real
 ```
 
-**Optimization:**
+**Optimización:**
 
 - Partitioning: `s3://bucket/year=2024/month=01/day=15/`  
-  → Enables partition pruning.
-- Format: Parquet > CSV/JSON  
-  → Parquet: columnar, compressed, 10x smaller.
-- Lifecycle: Move old data to Glacier (archive, 90% cheaper).
+  → Permite el partition pruning.
+- Formato: Parquet > CSV/JSON  
+  → Parquet: columnar, comprimido, 10x más pequeño.
+- Lifecycle: Mover datos antiguos a Glacier (archive, 90% más barato).
 
 ---
 
 ### 2. EMR (Elastic MapReduce)
 
-**What:** Managed Hadoop/Spark cluster  
-**Why:** No need to manage infrastructure, just run Spark  
-**Cons:** More expensive than raw EC2, overkill for small jobs
+**Qué:** Managed Hadoop/Spark cluster  
+**Por qué:** No hay necesidad de gestionar la infraestructura, solo ejecutar Spark  
+**Contras:** Más caro que raw EC2, overkill para jobs pequeños
 
 **Example:**
 
@@ -152,21 +149,21 @@ aws emr create-cluster \
 spark-submit s3://code/etl.py
 ```
 
-Cluster auto-scales and shuts down when done.
+El cluster auto-escalado y se apaga cuando termina.
 
 ---
 
 ### 3. Redshift (Data Warehouse)
 
-**What:** MPP (Massively Parallel Processing) database, OLAP optimized  
-**Why:** Query 100GB in seconds, cheap for analytics  
-**Cons:** Needs schema design, not real-time
+**Qué:** Base de datos MPP (Massively Parallel Processing), OLAP optimized  
+**Por qué:** Consulta 100GB en segundos, barato para analytics  
+**Contras:** Necesita schema design, no real-time
 
-**Example architecture:**
+**Ejemplo de arquitectura:**
 
-- 4 nodes × 2TB each = 8TB capacity
-- Columnar storage → fast queries
-- Distributed execution
+- 4 nodes × 2TB cada uno = 8TB de capacidad
+- Columnar storage → consultas rápidas
+- Ejecución distribuida
 
 **Pricing:**
 
@@ -174,28 +171,28 @@ Cluster auto-scales and shuts down when done.
 - 4 nodes × $0.43 = $1.72/hour
 - ≈ $1200/month (24/7)
 
-**Optimizations:**
+**Optimizaciones:**
 
-- Compression: zstd (90% smaller)
-- Sort keys: order by common filter columns
-- Dist keys: distribute by join key
-- Vacuum: reclaim space from deletes
+- Compression: zstd (90% más pequeño)
+- Sort keys: ordenar por columnas de filtro comunes
+- Dist keys: distribuir por join key
+- Vacuum: recuperar espacio de las eliminaciones
 
 ---
 
 ### 4. Lambda (Serverless Functions)
 
-**What:** Run code without managing servers  
-**Why:** Auto-scales, pay per execution  
-**Cons:** Cold start (~1s), max timeout 15 min
+**Qué:** Ejecutar código sin gestionar servers  
+**Por qué:** Auto-scales, paga por ejecución  
+**Contras:** Cold start (~1s), timeout máximo 15 min
 
-**Use cases:**
+**Casos de uso:**
 
-- Trigger ETL on S3 upload
-- Process streaming data
+- Trigger ETL en subida a S3
+- Procesar streaming data
 - API backends
 
-**Example:** Trigger Lambda on S3 upload
+**Ejemplo:** Trigger Lambda en subida a S3
 
 ```
 @lambda_handler
@@ -216,16 +213,16 @@ def handler(event, context):
 
 ### 5. Glue (Managed ETL)
 
-**What:** AWS-managed ETL for serverless pipelines  
-**Why:** Auto-scales, integrates with Redshift/Athena  
-**Cons:** Limited control vs pure Spark
+**Qué:** ETL gestionado por AWS para serverless pipelines  
+**Por qué:** Auto-scales, se integra con Redshift/Athena  
+**Contras:** Control limitado vs pure Spark
 
-**Features:**
+**Características:**
 
-- **Data Catalog:** metadata registry
-- **Crawlers:** auto-detect schema from S3
-- **Jobs:** run PySpark/Scala
-- **Triggers:** schedule or event-based
+- **Data Catalog:** registro de metadata
+- **Crawlers:** auto-detectar schema desde S3
+- **Jobs:** ejecutar PySpark/Scala
+- **Triggers:** basados en schedule o eventos
 
 **Example:**
 
@@ -259,48 +256,48 @@ glueContext.write_dynamic_frame.from_jdbc_conf(
 
 ### 6. Kinesis (Streaming)
 
-**What:** Managed Kafka alternative  
-**Why:** Scales automatically, AWS-native  
-**Cons:** Higher cost, less control
+**Qué:** Alternativa managed a Kafka  
+**Por qué:** Escala automáticamente, AWS-native  
+**Contras:** Mayor costo, menos control
 
-**Use cases:**
+**Casos de uso:**
 
 - Real-time ingestion
 - Event streaming
 - On-the-fly analytics
 
-**Architecture:**
+**Arquitectura:**
 
 ```
 Data Source → Kinesis Streams → Lambda/Spark → S3/Redshift
 ```
 
-**Specs:**
+**Especificaciones:**
 
 - 1 shard = 1 MB/sec ingestion
 - 10 shards = 10 MB/sec
-- Auto-scaling available
+- Auto-scaling disponible
 - Pricing: $0.035/shard-hour
 
 ---
 
-## Real-World: End-to-End Pipeline
+## Mundo Real: End-to-End Pipeline
 
-**Scenario:** E-commerce daily ETL
+**Escenario:** ETL diario de e-commerce
 
-**Steps:**
+**Pasos:**
 
-1. Lambda triggered by S3 upload
-2. EMR Spark cluster starts
-3. Read raw S3 → Transform → Write processed S3
-4. Redshift COPY from S3
-5. Analytics on Redshift
+1. Lambda triggered por subida a S3
+2. EMR Spark cluster se inicia
+3. Leer raw S3 → Transformar → Escribir processed S3
+4. Redshift COPY desde S3
+5. Analytics en Redshift
 
 **Architecture:**
 
 ```
 AWS_ARCHITECTURE = {
-    "ingestion": "S3 (raw data uploaded daily)",
+    "ingestion": "S3 (raw data subida diariamente)",
     "processing": "EMR (Spark cluster, 5 nodes)",
     "storage": "S3 (processed Parquet)",
     "warehouse": "Redshift (4 nodes, 8TB)",
@@ -310,31 +307,31 @@ AWS_ARCHITECTURE = {
 }
 ```
 
-**Alternatives:**
+**Alternativas:**
 
-- AWS Glue only: easier but less control
-- Databricks on EC2: higher control, higher complexity
+- AWS Glue only: más fácil pero menos control
+- Databricks on EC2: mayor control, mayor complejidad
 
 ---
 
-## Trade-offs: AWS vs Alternatives
+## Trade-offs: AWS vs Alternativas
 
-| Criteria             | AWS      | GCP             | Azure        |
+| Criterios            | AWS      | GCP             | Azure        |
 | -------------------- | -------- | --------------- | ------------ |
-| S3 equivalent        | S3       | GCS             | Blob Storage |
+| Equivalente a S3     | S3       | GCS             | Blob Storage |
 | Spark managed        | EMR      | Dataproc        | HDInsight    |
 | Warehouse            | Redshift | BigQuery        | Synapse      |
 | Serverless functions | Lambda   | Cloud Functions | Functions    |
 | Streaming            | Kinesis  | Pub/Sub         | Event Hubs   |
-| Cost                 | Mid      | Low (BigQuery)  | Mid          |
-| Ease                 | Mid      | High (BigQuery) | Mid          |
-| Control              | High     | Mid             | Mid          |
+| Costo                | Medio    | Bajo (BigQuery) | Medio        |
+| Facilidad            | Medio    | Alto (BigQuery) | Medio        |
+| Control              | Alto     | Medio           | Medio        |
 
 ---
 
 ## Errores Comunes en Entrevista
 
-- **"EMR es siempre más barato que Glue"** → Depende: para pequeños jobs, Glue es más cheap.
+- **"EMR es siempre más barato que Glue"** → Depende: para pequeños jobs, Glue es más barato.
 - **"S3 es ilimitado"** → Sí, pero el costo/performance importan. Haz partition smart.
 - **Ignorar Data Transfer Out Cost** → Transferir fuera de AWS cuesta $0.09/GB.
 - **Usar Redshift para datos real-time** → Redshift es batch-oriented. Usa Kinesis o Lambda.
@@ -343,30 +340,30 @@ AWS_ARCHITECTURE = {
 
 ## Preguntas de Seguimiento
 
-1. **¿Cuándo usas EMR vs Glue?**
-   - EMR: Control, custom Spark, big clusters.
-   - Glue: Managed, serverless, smaller jobs.
+1.  **¿Cuándo usas EMR vs Glue?**
+    - EMR: Control, custom Spark, big clusters.
+    - Glue: Managed, serverless, smaller jobs.
 
-2. **¿Redshift vs Athena?**
-   - Redshift: Persistent warehouse, preloaded data, complex queries.
-   - Athena: Query S3 directamente, cheap y ad-hoc.
+2.  **¿Redshift vs Athena?**
+    - Redshift: Persistent warehouse, datos preloaded, complex queries.
+    - Athena: Query S3 directamente, barato y ad-hoc.
 
-3. **¿Cómo optimizas S3 para costo?**
-   - Partitioning (partition pruning).
-   - Compression (Parquet).
-   - Lifecycle (archivar data vieja).
-   - Right format (Parquet > CSV).
+3.  **¿Cómo optimizas S3 para costo?**
+    - Partitioning (partition pruning).
+    - Compression (Parquet).
+    - Lifecycle (archivar data vieja).
+    - Right format (Parquet > CSV).
 
-4. **¿Cold start de EMR clusters?**
-   - 5–10 minutos para launch.
-   - Solución: mantener warm clusters (más caro, más rápido).
+4.  **¿Cold start de EMR clusters?**
+    - 5–10 minutos para launch.
+    - Solución: mantener warm clusters (más caro, más rápido).
 
 ---
 
-## References
+## Referencias
 
-1. [AWS S3 - Official Docs](https://docs.aws.amazon.com/s3/)
-2. [EMR - Spark on AWS](https://docs.aws.amazon.com/emr/)
-3. [Redshift - Data Warehouse](https://docs.aws.amazon.com/redshift/)
-4. [AWS Glue - ETL Service](https://docs.aws.amazon.com/glue/)
-5. [Kinesis - Streaming](https://docs.aws.amazon.com/kinesis/)
+- [AWS S3 - Official Docs](https://docs.aws.amazon.com/s3/)
+- [EMR - Spark on AWS](https://docs.aws.amazon.com/emr/)
+- [Redshift - Data Warehouse](https://docs.aws.amazon.com/redshift/)
+- [AWS Glue - ETL Service](https://docs.aws.amazon.com/glue/)
+- [Kinesis - Streaming](https://docs.aws.amazon.com/kinesis/)

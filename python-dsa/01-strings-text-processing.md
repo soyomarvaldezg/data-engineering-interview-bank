@@ -1,9 +1,6 @@
 # Strings & Text Processing en Python
 
-**Tags**: #python #strings #regex #text-processing #data-cleaning #real-interview  
-**Empresas**: Amazon, Google, Databricks, Stripe  
-**Dificultad**: Mid  
-**Tiempo estimado**: 18 min  
+**Tags**: #python #strings #regex #text-processing #data-cleaning #real-interview
 
 ---
 
@@ -43,213 +40,204 @@ Strings en Python: immutable, indexable, iterable. Métodos útiles: `.split()`,
 
 ### Parte 1: String Basics
 
-===== BASICS =====
+```python
+# ===== BASICS =====
 s = "Hello, World!"
 
-Indexing (0-indexed)
-print(s) # 'H'
-print(s[-1]) # '!'
-print(s[0:5]) # 'Hello'
+# Indexing (0-indexed)
+print(s[0])  # 'H'
+print(s[-1])  # '!'
+print(s[0:5])  # 'Hello'
 
-Methods: Built-in
-print(s.lower()) # 'hello, world!'
-print(s.upper()) # 'HELLO, WORLD!'
-print(s.strip()) # Remove leading/trailing whitespace
-print(s.replace("World", "Python")) # 'Hello, Python!'
-print(s.split(", ")) # ['Hello', 'World!']
+# Methods: Built-in
+print(s.lower())  # 'hello, world!'
+print(s.upper())  # 'HELLO, WORLD!'
+print(s.strip())  # Remove leading/trailing whitespace
+print(s.replace("World", "Python"))  # 'Hello, Python!'
+print(s.split(", "))  # ['Hello', 'World!']
 
-===== f-STRINGS (Modern Python) =====
+# ===== f-STRINGS (Modern Python) =====
 name = "Alice"
 age = 28
-print(f"{name} is {age} years old") # 'Alice is 28 years old'
-print(f"{name.upper()} is {age * 2} in two years") # 'ALICE is 56 in two years'
+print(f"{name} is {age} years old")  # 'Alice is 28 years old'
+print(f"{name.upper()} is {age * 2} in two years")  # 'ALICE is 56 in two years'
 
-===== STRING OPERATIONS =====
-Concatenation (slow in loops!)
+# ===== STRING OPERATIONS =====
+# Concatenation (slow in loops!)
 result = ""
 for word in ["Python", "is", "awesome"]:
-result += word + " " # ❌ BAD: Creates new string each iteration
+    result += word + " "  # ❌ BAD: Creates new string each iteration
 print(result)
 
-Better: join()
-result = " ".join(["Python", "is", "awesome"]) # ✅ GOOD: One allocation
+# Better: join()
+result = " ".join(["Python", "is", "awesome"])  # ✅ GOOD: One allocation
 print(result)
-
-text
+```
 
 ---
 
 ### Parte 2: Validation & Parsing
 
+```python
 import re
 
-===== EMAIL VALIDATION =====
+# ===== EMAIL VALIDATION =====
 def is_valid_email(email):
-pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$'
-return bool(re.match(pattern, email))
+    pattern = r'^[a-zA-Z0-9.*%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
 
-print(is_valid_email("alice@example.com")) # True
-print(is_valid_email("alice@example")) # False
-print(is_valid_email("alice.smith@example.co.uk")) # True
+print(is_valid_email("alice@example.com"))  # True
+print(is_valid_email("alice@example"))  # False
+print(is_valid_email("alice.smith@example.co.uk"))  # True
 
-===== PHONE VALIDATION =====
+# ===== PHONE VALIDATION =====
 def is_valid_phone(phone):
-pattern = r'^(+1)?[-.\s]?
-?
-[
-0
-−
-9
-]
-3
-?[0−9]3?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$'
-return bool(re.match(pattern, phone))
+    pattern = r'^(+1)?[-.\s]?\(?([0-9]{3})?\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$'
+    return bool(re.match(pattern, phone))
 
-print(is_valid_phone("555-1234-5678")) # True
-print(is_valid_phone("+1 (555) 1234-5678")) # True
-print(is_valid_phone("555")) # False
+print(is_valid_phone("555-1234-5678"))  # True
+print(is_valid_phone("+1 (555) 1234-5678"))  # True
+print(is_valid_phone("555"))  # False
 
-===== IP ADDRESS VALIDATION =====
+# ===== IP ADDRESS VALIDATION =====
 def is_valid_ipv4(ip):
-pattern = r'^(\d{1,3}.){3}\d{1,3}$'
-if not re.match(pattern, ip):
-return False
-parts = ip.split('.')
-return all(0 <= int(p) <= 255 for p in parts)
+    pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+    if not re.match(pattern, ip):
+        return False
+    parts = ip.split('.')
+    return all(0 <= int(p) <= 255 for p in parts)
 
-print(is_valid_ipv4("192.168.1.1")) # True
-print(is_valid_ipv4("192.168.1.256")) # False
-
-text
+print(is_valid_ipv4("192.168.1.1"))  # True
+print(is_valid_ipv4("192.168.1.256"))  # False
+```
 
 ---
 
 ### Parte 3: Data Cleaning
 
-===== CLEANING LOGS =====
+```python
+# ===== CLEANING LOGS =====
 log_line = " [ERROR] 2024-01-15 10:30:45 Database connection failed "
 
-Step 1: Strip whitespace
+# Step 1: Strip whitespace
 cleaned = log_line.strip()
 
-Step 2: Extract level
-level_match = re.search(r'
-(
-\w
-+
-)
-(\w+)', cleaned)
+# Step 2: Extract level
+level_match = re.search(r'^\[(\w+)\]', cleaned)
 level = level_match.group(1) if level_match else "UNKNOWN"
 
-Step 3: Extract timestamp
+# Step 3: Extract timestamp
 timestamp_match = re.search(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', cleaned)
 timestamp = timestamp_match.group(1) if timestamp_match else None
 
-Step 4: Extract message
-message_match = re.search(r'$$ (.+)$', cleaned)
+# Step 4: Extract message
+message_match = re.search(r'\] (.+)$', cleaned)
 message = message_match.group(1).strip() if message_match else ""
 
 print(f"Level: {level}, Time: {timestamp}, Message: {message}")
+# Output: Level: ERROR, Time: 2024-01-15 10:30:45, Message: Database connection failed
 
-Output: Level: ERROR, Time: 2024-01-15 10:30:45, Message: Database connection failed
-===== PARSING CSV (poor man's approach) =====
+# ===== PARSING CSV (poor man's approach) =====
 csv_line = 'Alice,"123 Main St",alice@example.com,28'
 
-Split by comma (naive approach, fails if comma in quoted fields)
-fields_naive = csv_line.split(',') # ❌ Wrong if commas in data
+# Split by comma (naive approach, fails if comma in quoted fields)
+fields_naive = csv_line.split(',')  # ❌ Wrong if commas in data
 
-Better: Use csv module or handle quotes
+# Better: Use csv module or handle quotes
 import csv
 import io
 
 reader = csv.reader(io.StringIO(csv_line))
 fields = next(reader)
-print(fields) # ['Alice', '123 Main St', 'alice@example.com', '28']
+print(fields)  # ['Alice', '123 Main St', 'alice@example.com', '28']
 
-===== NORMALIZE NAMES =====
+# ===== NORMALIZE NAMES =====
 names = [" JOHN SMITH ", "jane_doe", "robert.johnson", "Maria-Garcia"]
 
 def normalize_name(name):
-# Strip whitespace
-name = name.strip()
-# Convert to title case
-name = name.title()
-# Remove underscores, dots, hyphens
-name = re.sub(r'[_.\-]', ' ', name)
-# Remove multiple spaces
-name = re.sub(r'\s+', ' ', name)
-return name
+    # Strip whitespace
+    name = name.strip()
+
+    # Convert to title case
+    name = name.title()
+
+    # Remove underscores, dots, hyphens
+    name = re.sub(r'[_.\-]', ' ', name)
+
+    # Remove multiple spaces
+    name = re.sub(r'\s+', ' ', name)
+    return name
 
 normalized = [normalize_name(n) for n in names]
 print(normalized)
-
-['John Smith', 'Jane Doe', 'Robert Johnson', 'Maria Garcia']
-text
+# ['John Smith', 'Jane Doe', 'Robert Johnson', 'Maria Garcia']
+```
 
 ---
 
 ### Parte 4: Regex Patterns (Common)
 
+```python
 import re
 
-===== FINDALL: Encontrar todas ocurrencias =====
+# ===== FINDALL: Encontrar todas ocurrencias =====
 text = "Emails: alice@example.com, bob@test.org, charlie@company.co.uk"
 
-emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}', text)
+emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', text)
 print(emails)
+# ['alice@example.com', 'bob@test.org', 'charlie@company.co.uk']
 
-['alice@example.com', 'bob@test.org', 'charlie@company.co.uk']
-===== SUB: Reemplazar patrones =====
+# ===== SUB: Reemplazar patrones =====
 phone = "Call me at 555-123-4567 or 555.987.6543"
 
-Replace all phone formats with [REDACTED]
+# Replace all phone formats with [REDACTED]
 redacted = re.sub(r'\d{3}[-.]?\d{3}[-.]?\d{4}', '[PHONE]', phone)
 print(redacted)
+# 'Call me at [PHONE] or [PHONE]'
 
-'Call me at [PHONE] or [PHONE]'
-===== SPLIT con regex =====
+# ===== SPLIT con regex =====
 text = "apple, banana; orange | grape"
 
-Split by comma, semicolon, or pipe
+# Split by comma, semicolon, or pipe
 fruits = re.split(r'[,;|]', text)
 print(fruits)
+# ['apple', ' banana', ' orange ', ' grape']
 
-['apple', ' banana', ' orange ', ' grape']
-Clean up
+# Clean up
 fruits = [f.strip() for f in fruits]
 print(fruits)
+# ['apple', 'banana', 'orange', 'grape']
 
-['apple', 'banana', 'orange', 'grape']
-===== GROUPS: Extraer partes =====
+# ===== GROUPS: Extraer partes =====
 date_str = "2024-01-15"
 
 match = re.match(r'(\d{4})-(\d{2})-(\d{2})', date_str)
 if match:
-year, month, day = match.groups()
-print(f"Year: {year}, Month: {month}, Day: {day}")
+    year, month, day = match.groups()
+    print(f"Year: {year}, Month: {month}, Day: {day}")
 # Year: 2024, Month: 01, Day: 15
-
-text
+```
 
 ---
 
 ### Parte 5: Performance (Importante!)
 
+```python
 import time
 
-❌ SLOW: String concatenation in loop
+# ❌ SLOW: String concatenation in loop
 def slow_join():
-result = ""
-for i in range(100000):
-result += f"Item {i}, "
-return result
+    result = ""
+    for i in range(100000):
+        result += f"Item {i}, "
+    return result
 
-✅ FAST: Using join()
+# ✅ FAST: Using join()
 def fast_join():
-items = [f"Item {i}" for i in range(100000)]
-return ", ".join(items)
+    items = [f"Item {i}" for i in range(100000)]
+    return ", ".join(items)
 
-Benchmark
+# Benchmark
 start = time.time()
 slow_join()
 slow_time = time.time() - start
@@ -258,39 +246,31 @@ start = time.time()
 fast_join()
 fast_time = time.time() - start
 
-print(f"Slow: {slow_time:.3f}s") # ~0.5s (slow!)
-print(f"Fast: {fast_time:.3f}s") # ~0.01s (100x faster!)
+print(f"Slow: {slow_time:.3f}s")  # ~0.5s (slow!)
+print(f"Fast: {fast_time:.3f}s")  # ~0.01s (100x faster!)
 
-===== RULE =====
-For loops with string concat: ALWAYS use list + join(), not +=
-text
+# ===== RULE =====
+# For loops with string concat: ALWAYS use list + join(), not +=
+```
 
 ---
 
 ## Regex Patterns Útiles (Copy-Paste)
 
+```python
 patterns = {
-"email": r'^[a-zA-Z0-9.%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$',
-"phone_us": r'^(+1)?[-.\s]?
-?
-[
-0
-−
-9
-]
-3
-?[0−9]3?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$',
-"ipv4": r'^(\d{1,3}.){3}\d{1,3}$',
-"url": r'https?://[^\s]+',
-"date_iso": r'\d{4}-\d{2}-\d{2}',
-"hex_color": r'^#[0-9A-Fa-f]{6}$',
-"credit_card": r'^\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}$',
-"ssn": r'^\d{3}-\d{2}-\d{4}$',
-"uuid": r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-"username": r'^[a-zA-Z0-9]{3,16}$',
+    "email": r'^[a-zA-Z0-9.%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    "phone_us": r'^(+1)?[-.\s]?\(?([0-9]{3})?\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$',
+    "ipv4": r'^(\d{1,3}\.){3}\d{1,3}$',
+    "url": r'https?://[^\s]+',
+    "date_iso": r'\d{4}-\d{2}-\d{2}',
+    "hex_color": r'^#[0-9A-Fa-f]{6}$',
+    "credit_card": r'^\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}$',
+    "ssn": r'^\d{3}-\d{2}-\d{4}$',
+    "uuid": r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+    "username": r'^[a-zA-Z0-9]{3,16}$',
 }
-
-text
+```
 
 ---
 
@@ -298,9 +278,9 @@ text
 
 - **Error**: Usar `+` en loops para strings → **Solución**: `.join()` siempre
 
-- **Error**: Forgetting about regex groups** → **Solución**: `match.group(1)`, `match.groups()` son potentes
+- **Error**: Forgetting about regex groups → **Solución**: `match.group(1)`, `match.groups()` son potentes
 
-- **Error**: Not handling edge cases (None, empty, special chars)** → **Solución**: Valida input primero
+- **Error**: Not handling edge cases (None, empty, special chars) → **Solución**: Valida input primero
 
 - **Error**: Regex pattern es demasiado permisivo → **Solución**: Test con casos edge (edge@example, +++, etc)
 
@@ -328,52 +308,51 @@ text
 
 ## Real-World: Data Cleaning Pipeline
 
+```python
 def clean_customer_data(raw_data):
-"""Clean y validate customer records"""
+    """Clean y validate customer records"""
+    cleaned = []
+    errors = []
 
-text
-cleaned = []
-errors = []
+    for record in raw_data:
+        try:
+            name = record['name'].strip().title()
 
-for record in raw_data:
-    try:
-        name = record['name'].strip().title()
-        
-        # Validate email
-        email = record['email'].lower().strip()
-        if not is_valid_email(email):
-            raise ValueError(f"Invalid email: {email}")
-        
-        # Validate phone
-        phone = record['phone']
-        if phone and not is_valid_phone(phone):
-            raise ValueError(f"Invalid phone: {phone}")
-        
-        # Clean address (remove extra spaces)
-        address = re.sub(r'\s+', ' ', record['address'].strip())
-        
-        cleaned.append({
-            'name': name,
-            'email': email,
-            'phone': phone,
-            'address': address
-        })
-    
-    except ValueError as e:
-        errors.append(f"Record {record['id']}: {str(e)}")
+            # Validate email
+            email = record['email'].lower().strip()
+            if not is_valid_email(email):
+                raise ValueError(f"Invalid email: {email}")
 
-return cleaned, errors
-Usage
+            # Validate phone
+            phone = record['phone']
+            if phone and not is_valid_phone(phone):
+                raise ValueError(f"Invalid phone: {phone}")
+
+            # Clean address (remove extra spaces)
+            address = re.sub(r'\s+', ' ', record['address'].strip())
+
+            cleaned.append({
+                'name': name,
+                'email': email,
+                'phone': phone,
+                'address': address
+            })
+
+        except ValueError as e:
+            errors.append(f"Record {record['id']}: {str(e)}")
+
+    return cleaned, errors
+
+# Usage
 raw_records = [
-{'id': 1, 'name': ' ALICE SMITH ', 'email': 'ALICE@EXAMPLE.COM', 'phone': '555-123-4567', 'address': '123 Main St'},
-{'id': 2, 'name': 'bob jones', 'email': 'invalid-email', 'phone': '555.987.6543', 'address': '456 Oak Ave'},
+    {'id': 1, 'name': ' ALICE SMITH ', 'email': 'ALICE@EXAMPLE.COM', 'phone': '555-123-4567', 'address': '123 Main St'},
+    {'id': 2, 'name': 'bob jones', 'email': 'invalid-email', 'phone': '555.987.6543', 'address': '456 Oak Ave'},
 ]
 
 cleaned, errors = clean_customer_data(raw_records)
 print(f"Cleaned: {len(cleaned)}, Errors: {len(errors)}")
-
-Cleaned: 1, Errors: 1
-text
+# Cleaned: 1, Errors: 1
+```
 
 ---
 
@@ -381,5 +360,3 @@ text
 
 - [Python Strings - Official Docs](https://docs.python.org/3/tutorial/datastructures.html#strings)
 - [Regex Module - re documentation](https://docs.python.org/3/library/re.html)
-- [Regex 101 - Online Tester](https://regex101.com/)
-

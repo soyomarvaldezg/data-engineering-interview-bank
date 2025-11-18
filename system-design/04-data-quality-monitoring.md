@@ -1,445 +1,310 @@
-# Data Quality Monitoring at Scale
+# Monitoreo de Calidad de Datos a Escala
 
-**Tags**: #system-design #data-quality #monitoring #alerting #production #real-interview  
-**Empresas**: Amazon, Google, Meta, Stripe, Uber  
-**Dificultad**: Senior  
-**Tiempo estimado**: 25 min  
+**Tags**: #data-quality #monitoring #alerts #production #real-interview
 
 ---
 
 ## TL;DR
 
-Data quality monitoring = automatizar detección de anomalías en datos (NULL %, duplicates %, schema changes, freshness). Métricas: null_percentage, duplicate_count, row_count_delta, schema_validation, latency. Alertas si métricas bajan vs baseline. Herramientas: Great Expectations, dbt tests, custom Spark jobs. Trade-off: Strict (alerta mucho, ruido) vs Loose (pierdes problemas).
+Monitoreo de calidad de datos = detectar automáticamente problemas (NULLs, duplicados, cambios de esquema, datos tardíos). Métricas: null_percentage, duplicate_count, row_count_delta, schema_validation, freshness. Alertas si las métricas exceden umbrales predefinidos. Herramientas: Great Expectations (automatiza tests), DataDog/Prometheus + Grafana, Slack/Email. Trade-offs: Strict (muchas alertas) vs Loose (menos alertas). Para producción: Balance entre detección temprana vs fatiga de alertas.
 
 ---
 
-## Problema Real
+## Concepto
 
-**Escenario:**
-
-- 100+ data pipelines en producción
-- 50+ fuentes de datos (databases, APIs, S3)
-- Data team = 3 personas (no pueden monitorear manual)
-- Descubren bugs DESPUÉS (dashboards dan números malos)
-- Necesitan: Alerta ANTES que datos lleguen a analytics
-
-**Preguntas:**
-
-1. ¿Cómo detectas data quality issues automáticamente?
-2. ¿Qué métricas monitoreas?
-3. ¿Cuándo alertas vs ignoras?
-4. ¿Cómo evitas "alert fatigue" (ruido)?
-5. ¿Cómo escalas monitoreo a 100+ pipelines?
+- **Qué es**: Monitoreo de calidad de datos = verificar que los datos cumplen con estándares de calidad
+- **Por qué importa**: Los datos malos conducen a análisis incorrectos y decisiones empresariales malas. En producción, el 80% del tiempo se gasta en calidad de datos
+- **Principio clave**: Calidad de datos = "Basura dentro, basura fuera" (GIGO). El monitoreo automático es esencial
 
 ---
 
-## Solución: Data Quality Framework
+## Framework de Monitoreo de Calidad de Datos
 
-### Arquitectura
+### Great Expectations (Automatización de Validaciones)
 
-┌──────────────────────────┐
-│ Data Pipeline │
-│ (ETL job running) │
-└────────────┬─────────────┘
-│
-▼
-┌──────────────────────────────────────┐
-│ DATA QUALITY CHECKS (Post-Load) │
-├──────────────────────────────────────┤
-│ ✓ Schema validation │
-│ ✓ Row count checks │
-│ ✓ NULL percentage checks │
-│ ✓ Duplicate detection │
-│ ✓ Freshness checks │
-│ ✓ Statistical anomalies │
-└────────────┬─────────────────────────┘
-│
-┌────────┴────────┐
-│ │
-▼ ▼
-┌─────────┐ ┌──────────────┐
-│ PASS │ │ FAIL │
-│ Continue│ │ Stop + Alert │
-└────────┘ └──────────────┘
-│ │
-▼ ▼
-┌────────────┐ ┌──────────────────┐
-│ Warehouse │ │ Quarantine Zone │
-│ Ready │ │ (manual review) │
-└────────────┘ └──────────────────┘
+```python
+from great_expectations import GreatExpectations
+from pyspark.sql import SparkSession
 
-text
+class DataQualityChecks(GreatExpectations):
+    def __init__(self, spark):
+        self.spark = spark
 
----
+    def validate_customer_schema(self, df):
+        """Valida esquema de clientes"""
+        return self.expect_dataframe_to_have_columns(df, ['customer_id', 'name', 'email'])
+        return self.expect_column_values_to_be_unique('customer_id')
+        return self.expect_column_values_to_not_be_null('email')
 
-### Métricas de Calidad
+    def validate_orders_schema(self, df):
+        """Valida esquema de pedidos"""
+        return self.expect_column_values_to_be_positive('amount')
+        return self.expect_column_values_to_be_between('quantity', 1, 1000)
 
-Pseudocódigo: Checks ejecutados post-ingesta
-class DataQualityChecks:
+    def validate_row_count(self, table, expected_range):
+        """Valida que el conteo de filas esté en rango esperado"""
+        actual_count = self.spark.sql(f"SELECT COUNT(*) FROM {table}")
+        min_val, max_val = expected_range
+        actual_count = actual_count.collect()[0][0]
 
-text
-# 1. SCHEMA VALIDATION
-def validate_schema(self, df, expected_schema):
-    """Verifica columnas, tipos, orden"""
-    actual_schema = df.schema
-    if actual_schema != expected_schema:
-        raise Exception(f"Schema mismatch: {actual_schema}")
+        if not (min_val <= actual_count <= max_val):
+            raise Exception(f"Row count fuera de rango: {actual_count} (esperado: {min_val}-{max_val}")
 
-# 2. ROW COUNT VALIDATION
-def validate_row_count(self, df, yesterday_count):
-    """Detecta anomalías: si sube/baja demasiado"""
-    current_count = df.count()
-    pct_change = abs((current_count - yesterday_count) / yesterday_count) * 100
-    
-    if pct_change > 15:  # Threshold: ±15%
-        raise Exception(f"Row count variance: {pct_change}%")
+    def validate_freshness(self, table, max_hours):
+        """Valida frescura de datos"""
+        max_timestamp = self.spark.sql(f"SELECT MAX(updated_at) FROM {table}")
+        hours_old = (datetime.now() - max_timestamp).total_seconds() / 3600
 
-# 3. NULL PERCENTAGE
-def validate_nulls(self, df, column, threshold=5):
-    """NULL % no puede exceder threshold"""
-    null_count = df.filter(col(column).isNull()).count()
-    null_pct = (null_count / df.count()) * 100
-    
-    if null_pct > threshold:
-        raise Exception(f"{column}: {null_pct}% NULLs (threshold: {threshold}%)")
+        if hours_old > max_hours:
+            raise Exception(f"Datos demasiado viejos: {hours_old} horas")
 
-# 4. DUPLICATE DETECTION
-def validate_duplicates(self, df, key_cols):
-    """Detecta filas duplicadas por clave"""
-    dups = df.groupBy(key_cols).count().filter(col("count") > 1).count()
-    
-    if dups > 0:
-        raise Exception(f"Found {dups} duplicate rows")
+    def validate_duplicates(self, table, key_cols):
+        """Detecta duplicados por clave"""
+        dups = self.spark.sql(f"""
+            SELECT {', '.join(key_cols), COUNT(*) as count
+            FROM {table}
+            GROUP BY {', '.join(key_cols)
+            HAVING COUNT(*) > 1
+        """)
 
-# 5. FRESHNESS CHECK
-def validate_freshness(self, df, timestamp_col, max_hours=2):
-    """Datos no pueden ser muy viejos"""
-    max_timestamp = df.agg(max(col(timestamp_col))).collect()
-    hours_old = (datetime.now() - max_timestamp).total_seconds() / 3600
-    
-    if hours_old > max_hours:
-        raise Exception(f"Data {hours_old} hours old (max: {max_hours})")
+        if dups.count() > 0:
+            raise Exception(f"Se detectaron {dups.count()} duplicados en {table}")
 
-# 6. BUSINESS LOGIC VALIDATION
-def validate_business_rules(self, df):
-    """Verifica reglas específicas del negocio"""
-    invalid_rows = df.filter(
-        (col("amount") < 0) |  # No negative amounts
-        (col("age") > 150) |   # Reasonable age
-        ~col("email").rlike(r'^[\w\.-]+@[\w\.-]+\.\w+$')  # Valid email
-    ).count()
-    
-    if invalid_rows > 0:
-        raise Exception(f"Found {invalid_rows} invalid rows")
+    def validate_null_percentage(self, table, column, threshold=5):
+        """Verifica porcentaje de nulos"""
+        null_pct = self.spark.sql(f"""
+            SELECT (COUNT(*) - COUNT({column}) * 100 / COUNT(*))
+            FROM {table}
+        """).collect()[0][0]
 
-# 7. STATISTICAL ANOMALY DETECTION
-def detect_statistical_anomalies(self, df, column):
-    """Detecta outliers usando Z-score"""
-    stats = df.select(
-        avg(col(column)).alias("mean"),
-        stddev(col(column)).alias("stddev")
-    ).collect()
-    
-    anomalies = df.filter(
-        abs((col(column) - stats.mean) / stats.stddev) > 3  # 3-sigma rule
-    ).count()
-    
-    if anomalies > 0:
-        return f"Statistical anomalies: {anomalies} outliers detected"
-text
+        if null_pct > threshold:
+            raise Exception(f"Porcentaje de nulos en {table}.{column}: {null_pct}%")
 
----
+    def run_all_checks(self, tables_info):
+        """Ejecuta todas las validaciones"""
+        results = {}
 
-### Implementación: Great Expectations
+        for table_name, config in tables_info.items():
+            df = self.spark.table(table_name)
 
-import great_expectations as gx
+            # Validación de esquema
+            self.validate_schema(table_name, df)
 
-===== SETUP =====
-context = gx.get_context()
+            # Validación de datos
+            self.validate_row_count(table_name, config["expected_range"])
 
-===== DEFINE EXPECTATIONS =====
-validator = context.sources.pandas_default.read_pandas(df)
+            # Validación de nulos
+            self.validate_null_percentage(table_name, config["null_thresholds"])
 
-validator.expect_table_columns_to_match_ordered_list([
-"customer_id", "name", "email", "age", "signup_date"
-])
+            # Validación de duplicados
+            for key_cols in config["key_columns"]:
+                self.validate_duplicates(table_name, key_cols)
 
-validator.expect_column_values_to_not_be_null("customer_id")
-validator.expect_column_values_to_not_be_null("name")
+            results[table_name] = {
+                "row_count": df.count(),
+                "schema_validation": "PASS",
+                "null_percentage": null_pct,
+                "duplicate_count": dups.count()
+            }
 
-validator.expect_column_values_to_match_regex("email", r'^[\w.-]+@[\w.-]+.\w+$')
+        return results
+```
 
-validator.expect_column_values_to_be_between("age", min_value=0, max_value=150)
+### Sistema de Alertas
 
-validator.expect_column_values_to_be_in_set("country", ["USA", "CA", "MX"])
+```python
+class AlertManager:
+    def __init__(self, alert_webhook, email_smtp):
+        self.alert_webhook = alert_webhook
+        self.email_smtp = email_smtp
 
-===== VALIDATE =====
-checkpoint = context.add_or_update_checkpoint(
-name="customer_data_checkpoint",
-validator=validator
-)
+    def send_alert(self, alert_type, message, details):
+        """Envía alerta según el tipo"""
+        alert_data = {
+            "type": alert_type,
+            "message": message,
+            "details": details,
+            "timestamp": datetime.now()
+        }
 
-result = checkpoint.run()
+        self.alert_webhook(alert_data)
 
-if result.success:
-print("✓ All checks passed")
-else:
-print("✗ Validation failed")
-for check in result.results:
-print(f" - {check.expectation_config.expectation_type}: FAILED")
+    def send_data_quality_alert(self, table, metric, value, threshold):
+        """Envía alerta si la métrica excede el umbral"""
+        if value > threshold:
+            self.send_alert("DATA_QUALITY", f"{table}.{metric}: {value} (threshold: {threshold})")
 
-text
+    def send_fraud_alert(self, table, fraud_count):
+        """Alerta si hay demasiados fraudes"""
+        if fraud_count > threshold:
+            self.send_alert("FRAUD", f"{table}: {fraud_count} fraudes detectados")
+
+    def send_latency_alert(self, component, latency_ms, threshold_ms):
+        """Alerta si la latencia excede el umbral"""
+        if latency_ms > threshold_ms:
+            self.send_alert("LATENCY", f"{component}: {latency_ms}ms (threshold: {threshold_ms}ms")
+```
 
 ---
 
-### Baseline vs Threshold Strategy
+## Métricas Clave
 
-===== DYNAMIC BASELINES =====
-Usar histórico para detectar anomalías
-class BaselineCalculator:
+### Métricas de Calidad de Datos
 
-text
-def calculate_baseline(self, metric_history):
-    """Calcula baseline + thresholds del histórico"""
-    import numpy as np
-    
-    values = metric_history[-30:]  # Últimos 30 días
-    mean = np.mean(values)
-    stddev = np.std(values)
-    
-    return {
-        "mean": mean,
-        "lower_bound": mean - 2*stddev,  # -2 sigma
-        "upper_bound": mean + 2*stddev   # +2 sigma
-    }
+```python
+class DataQualityMetrics:
+    def calculate_null_percentage(self, table, column):
+        null_count = self.spark.sql(f"""
+            SELECT (COUNT(*) - COUNT({column}) * 100 / COUNT(*))
+            FROM {table}
+        """).collect()[0][0]
 
-def is_anomaly(self, current_value, baseline):
-    """Detecta si valor actual es anomalía"""
-    if current_value < baseline["lower_bound"]:
-        return True, "BELOW_EXPECTED"
-    if current_value > baseline["upper_bound"]:
-        return True, "ABOVE_EXPECTED"
-    return False, "NORMAL"
-===== USAGE =====
-baseline = calculator.calculate_baseline(row_count_history)
+        return null_count / self.spark.sql(f"SELECT COUNT(*) FROM {table}").collect()[0][0] * 100
 
-current_row_count = 5000
-is_anom, reason = calculator.is_anomaly(current_row_count, baseline)
+    def calculate_duplicate_count(self, table, key_cols):
+        dups = self.spark.sql(f"""
+            SELECT {', '.join(key_cols), COUNT(*) as count
+            FROM {table}
+            GROUP BY {', '.join(key_cols)
+            HAVING COUNT(*) > 1
+        """).collect()
 
-if is_anom:
-alert(f"Row count anomaly: {reason} (current: {current_row_count}, expected: {baseline['mean']})")
+        return dups
 
-text
+    def calculate_row_count_delta(self, table, hours=24):
+        today_count = self.spark.sql(f"""
+            SELECT COUNT(*) FROM {table}
+            WHERE DATE(updated_at) >= DATE_SUB(CURRENT_DATE, INTERVAL '{hours} HOUR)
+            """).collect()[0][0]
 
----
+        yesterday_count = self.spark.sql(f"""
+            SELECT COUNT(*) FROM {table}
+            WHERE DATE(updated_at) BETWEEN DATE_SUB(CURRENT_DATE, INTERVAL '{hours+24} HOUR, DATE_SUB(CURRENT_DATE, INTERVAL '{hours} HOUR)
+            """).collect()[0][0]
 
-## Alert Strategy: Evitar Fatiga
+        delta = today_count - yesterday_count
 
-### Severidad de Alertas
+        return {
+            "table": table,
+            "today_count": today_count,
+            "yesterday_count": yesterday_count,
+            "row_count_delta": delta,
+            "pct_change": delta / yesterday_count * 100
+        }
+```
 
-SEVERITY 1 (CRITICAL - Page on-call):
-├─ Schema changed (columns missing)
-├─ Zero rows in fact table
-├─ Data > 24h old (freshness SLA broke)
-└─ Action: Immediate investigation
+### Métricas de Rendimiento
 
-SEVERITY 2 (HIGH - Alert but don't page):
-├─ NULL % > 10%
-├─ Duplicates detected
-├─ Row count change > 20%
-└─ Action: Review next morning
+```python
+class PerformanceMetrics:
+    def calculate_processing_time(self, table):
+        """Calcula tiempo de procesamiento"""
+        start_time = time.time()
 
-SEVERITY 3 (LOW - Log only):
-├─ Metric changed slightly
-├─ Warning level thresholds
-└─ Action: Monitor, no action needed
+        self.spark.sql(f"SELECT COUNT(*) FROM {table}").collect()[0][0]
 
-text
+        end_time = time.time()
+        processing_time = end_time - start_time
 
----
+        return processing_time
 
-### Smart Alerting Rules
+    def calculate_storage_size(self, table):
+        """Calcula tamaño de almacenamiento"""
+        table_size_mb = self.spark.sql(f"""
+            SELECT SUM(size_bytes) / (1024 * 1024) AS size_mb
+            FROM information_schema.tables
+            WHERE table = '{table}'
+            """).collect()[0][0]
 
-❌ ALERT FATIGUE: Alertar por todo
-if metric != yesterday:
-alert() # Alerta TODOS los días
+        return table_size_mb
 
-✅ SMART ALERTING: Solo anomalías reales
-def should_alert(current, baseline, severity):
+    def calculate_query_performance(self, query):
+        """Calcula tiempo de consulta"""
+        start_time = time.time()
 
-text
-# Ignore pequeños cambios
-if abs(current - baseline["mean"]) / baseline["mean"] < 0.05:
-    return False  # < 5% change = ignore
+        result = self.spark.sql(query)
+        end_time = time.time()
 
-# Severe anomalies siempre
-if abs(current - baseline["mean"]) > 3 * baseline["stddev"]:
-    return True, "CRITICAL"
-
-# Moderate anomalies solo si persistent (2+ days)
-if abs(current - baseline["mean"]) > 2 * baseline["stddev"]:
-    if persistent_count >= 2:
-        return True, "HIGH"
-
-return False
-text
+        return end_time - start_time
+```
 
 ---
 
-## Monitoreo a Escala (100+ Pipelines)
+## Implementación de Alertas
 
-### Centralized Monitoring Platform
+### Sistema de Alertas
 
-┌─────────────────────────────────────────┐
-│ DATA QUALITY PLATFORM (Central) │
-├─────────────────────────────────────────┤
-│ ├─ Metadata registry (todas las tables) │
-│ ├─ Rules engine (checks automáticos) │
-│ ├─ Execution engine (corre checks) │
-│ ├─ Alerting service (notificaciones) │
-│ └─ Dashboard (visualización) │
-└─────────────────────────────────────────┘
-▲ ▲ ▲
-│ │ │
-┌────┴────┬────┴────┬────┴────┐
-│ │ │ │
-Pipeline Pipeline Pipeline ...
-1 2 3
+```python
+class AlertSystem:
+    def __init__(self):
+        self.alert_rules = {
+            "row_count_delta": {"threshold": 10, "severity": "HIGH"},
+            "null_percentage": {"threshold": 5, "severity": "MEDIUM"},
+            "duplicate_count": {"threshold": 1, "severity": "HIGH"},
+            "freshness": {"threshold": 2, "severity": "MEDIUM"},
+            "processing_time": {"threshold": 500, "severity": "MEDIUM"},
+            "query_performance": {"threshold": 1000, "severity": "HIGH"}
+        }
+        }
 
-text
+    def evaluate_metric(self, metric_name, table, value):
+        rule = self.alert_rules.get(metric_name)
 
----
+        if value > rule["threshold"]:
+            severity = rule["severity"]
+            message = f"{metric_name}: {value} (threshold: {rule['threshold']})"
 
-### Declarative Rules (Código)
+            self.send_alert(severity, message, {
+                "table": table,
+                "metric": metric_name,
+                "value": value
+            })
 
-rules.yaml: Define checks sin escribir código
-tables:
-customers:
-checks:
-- type: schema
-columns: [id, name, email, age]
-- type: row_count
-baseline: 1000000
-tolerance: 15% # ±15%
-- type: null_percentage
-column: email
-threshold: 1%
-- type: duplicates
-key_columns: [id]
-- type: freshness
-timestamp_column: updated_at
-max_hours: 2
-
-orders:
-checks:
-- type: row_count
-baseline: 50000
-tolerance: 20%
-- type: null_percentage
-column: customer_id
-threshold: 0% # NO NULLs permitidos
-- type: business_rule
-rule: "amount > 0"
-
-Ejecución automática: Platform lee yaml, corre checks
-text
-
----
-
-## Ejemplo Real: End-to-End
-
-from great_expectations import ValidationOperator
-from datetime import datetime
-
-class DataQualityPipeline:
-
-text
-def run_quality_checks(self, table_name, df):
-    """Ejecuta checks y genera reporte"""
-    
-    checks_passed = []
-    checks_failed = []
-    
-    # Check 1: Schema
-    try:
-        self.validate_schema(df, table_name)
-        checks_passed.append("Schema validation")
-    except Exception as e:
-        checks_failed.append(f"Schema: {str(e)}")
-    
-    # Check 2: Row count
-    try:
-        baseline = self.get_baseline(table_name)
-        self.validate_row_count(df, baseline)
-        checks_passed.append("Row count validation")
-    except Exception as e:
-        checks_failed.append(f"Row count: {str(e)}")
-    
-    # Check 3: NULLs
-    try:
-        self.validate_nulls(df, table_name)
-        checks_passed.append("NULL validation")
-    except Exception as e:
-        checks_failed.append(f"NULLs: {str(e)}")
-    
-    # Generate report
-    report = {
-        "table": table_name,
-        "timestamp": datetime.now(),
-        "total_rows": df.count(),
-        "passed_checks": len(checks_passed),
-        "failed_checks": len(checks_failed),
-        "failures": checks_failed
-    }
-    
-    # Save to monitoring DB
-    self.save_report(report)
-    
-    # Alert si failed
-    if checks_failed:
-        severity = "CRITICAL" if len(checks_failed) > 2 else "HIGH"
-        self.send_alert(table_name, checks_failed, severity)
-    
-    return report
-text
+# Uso
+alert_system = AlertSystem()
+alert_system.evaluate_metric("row_count_delta", "customers", 15)  # Excede umbral de 10%
+# Alerta: "HIGH: row_count_delta: 15% (threshold: 10%)
+```
 
 ---
 
 ## Errores Comunes en Entrevista
 
-- **Error**: Monitorear TODO (genera ruido) → **Solución**: Prioriza checks críticos, ignora ruido
+- **Error**: "Monitorear TODO" → **Solución**: Priorizar métricas críticas y establecer alertas automáticas
 
-- **Error**: Thresholds fijos (no adaptables)** → **Solución**: Baselines dinámicos (histórico)
+- **Error**: "Alertar demasiado" → **Solución**: Implementar umbrales de alerta para evitar fatiga de alertas
 
-- **Error**: Alertas sin acción (qué hace el data engineer?) → **Solución**: Alerta debe incluir: qué falló, por qué, acción recomendada
+- **Error**: "No monitorear el rendimiento" → **Solución**: Incluir métricas de rendimiento y latencia
 
-- **Error**: No monitorear latencia/freshness → **Solución**: Datos válidos pero viejos = inútil
-
----
-
-## Preguntas de Seguimiento
-
-1. **"¿Cómo balanceas sensitive vs noisy checks?"**
-   - Usar z-score, percentiles
-   - Dynamic baselines, no fixed thresholds
-
-2. **"¿Cómo manejas cambios esperados?"**
-   - Update baselines post-change
-   - Documentar expected anomalies
-
-3. **"¿Cost de data quality monitoring?"**
-   - Run checks en paralelo (post-load)
-   - ~10% overhead vs main pipeline
-
-4. **"¿Cómo handlea test data vs production?"**
-   - Separate check profiles
-   - Different thresholds por environment
+- **Error**: "No alertar cambios en el esquema" → **Solución**: Detectar cambios en el esquema y alertar
 
 ---
 
-## References
+## Preguntas de Seguimiento Típicas
 
-- [Great Expectations - Data Validation](https://greatexpectations.io/)
-- [dbt tests - Data Testing](https://docs.getdbt.com/docs/building-a-dbt-project/tests)
-- [Monitoring Data Pipelines - Databricks](https://docs.databricks.com/data-quality/index.html)
+1. **"¿Cómo manejas el ruido en las métricas?"**
+   - Suavizado de métricas
+   - Filtros de ruido
+   - Umbral adaptativo según la hora del día
 
+2. **"¿Cómo manejas alertas falsos positivos?"**
+   - Confirmación con datos históricos
+   - Validación cruzada
+   - Alertas en cascada con diferentes niveles de severidad
+
+3. **"¿Cómo escalas a 1000+ pipelines?"**
+   - Plataforma centralizada con estándares predefinidos
+   - Automatización de alertas
+   - Jerarquía de alertas
+
+4. **"¿Cómo manejas cambios en el esquema?"**
+   - Versionado de esquemas
+   - Validación de compatibilidad hacia atrás
+   - Alertas sobre cambios de esquema
+
+---
+
+## Referencias
+
+- https://learn.microsoft.com/en-us/azure/databricks/data-quality-monitoring/
+- https://www.ibm.com/think/topics/data-quality-monitoring-techniques

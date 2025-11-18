@@ -1,55 +1,51 @@
 # Slowly Changing Dimensions (SCD)
 
-**Tags**: #data-modeling #scd #dimensions #history #tracking #real-interview  
-**Empresas**: Amazon, Google, Meta, JPMorgan, Walmart  
-**Dificultad**: Senior  
-**Tiempo estimado**: 25 min  
+**tags**: #data-modeling #scd #dimensions #history #tracking #real-interview
 
 ---
 
-## TL;DR
+## En resumen (TL;DR)
 
-**SCD** = how to track changes in dimensions over time. **Types**: (1) Overwrite (no history), (2) Add row (full history), (3) Add columns (recent history), (4) Hybrid. **Reality**: Most analytics = Type 2 (track everything). **Challenge**: Without SCD = wrong historical analysis ("price was $100" but history says $50).
+**SCD** = cómo trackear (rastrear) cambios en las **dimensions** a lo largo del tiempo. **Tipos**: (1) Overwrite (sin **history**), (2) Add row (**history** completa), (3) Add columns (**history** reciente), (4) Hybrid. **Realidad**: La mayoría de los **analytics** = **Type 2** (trackea todo). **Reto**: Sin **SCD** = análisis histórico incorrecto ("el **price** era de $100" pero la **history** dice $50).
 
 ---
 
 ## Concepto Core
 
-- **Qué es**: Dimension attributes change (price, location, name). Need to track history
-- **Por qué importa**: If you ignore changes, historical analysis is WRONG
-- **Principio clave**: Design SCD upfront, not after data corrupts
+- **Qué es**: Los **attributes** de las **dimensions** cambian (**price**, **location**, **name**). Necesidad de trackear **history**.
+- **Por qué importa**: Si ignoras los cambios, el análisis histórico es INCORRECTO.
+- **Principio clave**: Diseñar **SCD** de antemano, no después de que los **data** se corrompan.
 
 ---
 
-## Problem: Why SCD Matters
+## Problema: Por qué SCD es importante
 
-Example: Product dimension
+Ejemplo: **dimension** de **Product**
 
-Scenario: Nike Air Max
-├─ 2024-01-01: Price = $120, Color = Red
-├─ 2024-06-01: Price = $99 (sale)
+Escenario: Nike Air Max
+├─ 2024-01-01: **Price** = $120, Color = Red
+├─ 2024-06-01: **Price** = $99 (sale)
 ├─ 2024-08-01: Color = Blue (restocked)
 
-Question: "How much did we sell Air Max for in Q2 2024?"
+Pregunta: "¿Por cuánto vendimos Air Max en el Q2 de 2024?"
 
-Without SCD (overwrite):
-├─ dim_product: product_id=1, name="Air Max", price=$99, color=Blue
-├─ Old prices/colors: LOST
-├─ Answer: "We sold for $99" (WRONG! It was $120 in Q2)
+Sin **SCD** (**overwrite**):
+├─ **dim_product**: **product_id**=1, **name**="Air Max", **price**=$99, color=Blue
+├─ Old **prices**/colors: PERDIDOS
+├─ Respuesta: "Vendimos por $99" (¡INCORRECTO! Era $120 en Q2)
 
-With SCD Type 2:
-├─ Row 1: product_id=1, valid_from=2024-01-01, valid_to=2024-06-01, price=$120
-├─ Row 2: product_id=1, valid_from=2024-06-01, valid_to=2024-08-01, price=$99
-├─ Row 3: product_id=1, valid_from=2024-08-01, valid_to=9999-12-31, price=$99
-├─ Old data: PRESERVED
-├─ Answer: "Q2 sales were at $120" (CORRECT!)
-
-text
+Con **SCD Type 2**:
+├─ Row 1: **product_id**=1, **valid_from**=2024-01-01, **valid_to**=2024-06-01, **price**=$120
+├─ Row 2: **product_id**=1, **valid_from**=2024-06-01, **valid_to**=2024-08-01, **price**=$99
+├─ Row 3: **product_id**=1, **valid_from**=2024-08-01, **valid_to**=9999-12-31, **price**=$99
+├─ Old **data**: PRESERVADOS
+├─ Respuesta: "Las **sales** de Q2 fueron de $120" (¡CORRECTO!)
 
 ---
 
-## SCD Type 1: Overwrite (Simple, Lossy)
+## SCD Type 1: Overwrite (Simple, Con Pérdida)
 
+```sql
 CREATE TABLE dim_product_type1 (
 product_id INT PRIMARY KEY,
 product_name VARCHAR(100),
@@ -64,36 +60,36 @@ VALUES (1, 'Nike Air Max', 'Shoes', 120.00, NOW());
 
 -- Price changes
 UPDATE dim_product_type1 SET price = 99.00, updated_at = NOW() WHERE product_id = 1;
--- Old price (120) is GONE
+-- El old price (120) se ha PERDIDO
 
--- Query: "What was price in Q2?"
+-- Query: "¿Cuál era el price en Q2?"
 SELECT price FROM dim_product_type1 WHERE product_id = 1;
--- Returns: 99.00 (WRONG! Q2 price was 120)
+-- Retorna: 99.00 (¡INCORRECTO! El price de Q2 era 120)
+```
 
 Pros:
-✓ Simple (just UPDATE)
-✓ Small storage
+✓ Simple (solo **UPDATE**)
+✓ Poco **storage**
 
-Cons:
-✗ No history (cannot answer "was the price different before?")
-✗ Analytics wrong
-✗ Compliance nightmare
+Contras:
+✗ Sin **history** (no puede responder "¿el **price** era diferente antes?")
+✗ **Analytics** incorrectos
+✗ Pesadilla de **compliance**
 
-Use cases:
+Casos de uso:
 
-Only non-critical attributes (rarely used attributes)
+Solo **attributes** no críticos (**attributes** poco usados)
 
-Correctness not important
-
-text
+La **Correctness** no es importante
 
 ---
 
-## SCD Type 2: Add Row (Full History, Recommended)
+## SCD Type 2: Add Row (History Completa, Recomendado)
 
+```sql
 CREATE TABLE dim_product_type2 (
 product_key INT PRIMARY KEY, -- Surrogate key (auto-increment)
-product_id INT, -- Business key (what customers know)
+product_id INT, -- Business key (lo que los clientes conocen)
 product_name VARCHAR(100),
 category VARCHAR(50),
 price DECIMAL(10,2),
@@ -116,9 +112,9 @@ NULL, -- Auto-increment
 '9999-12-31',
 TRUE
 );
--- Result: product_key=1000, product_id=1
+-- Resultado: product_key=1000, product_id=1
 
--- Price changes on 2024-06-01
+-- Price changes el 2024-06-01
 UPDATE dim_product_type2 SET valid_to = '2024-05-31', is_current = FALSE WHERE product_key = 1000;
 
 INSERT INTO dim_product_type2
@@ -132,50 +128,50 @@ NULL,
 '9999-12-31',
 TRUE
 );
--- Result: product_key=1001, product_id=1
+-- Resultado: product_key=1001, product_id=1
 
--- Query: "What was price in Q2 2024?"
+-- Query: "¿Cuál era el price en Q2 2024?"
 SELECT price FROM dim_product_type2
 WHERE product_id = 1
 AND valid_from <= '2024-06-15'
 AND valid_to >= '2024-06-15';
--- Returns: 120.00 (CORRECT!)
+-- Retorna: 120.00 (¡CORRECTO!)
 
 -- Query: "Current price"
 SELECT price FROM dim_product_type2
 WHERE product_id = 1 AND is_current = TRUE;
--- Returns: 99.00 (CORRECT!)
+-- Retorna: 99.00 (¡CORRECTO!)
 
 -- Query: "Price history"
 SELECT price, valid_from, valid_to FROM dim_product_type2
 WHERE product_id = 1
 ORDER BY valid_from;
--- Returns: 120 (Jan-May), 99 (June+) with dates
+-- Retorna: 120 (Ene-May), 99 (Jun+) con dates
+```
 
 Pros:
-✓ Full history (can answer any time question)
-✓ Correct analytics
-✓ Compliance-friendly (audit trail)
+✓ Full **history** (puede responder cualquier pregunta de tiempo)
+✓ **Analytics** correctos
+✓ **Compliance**-friendly (**audit trail**)
 
-Cons:
-✗ More rows (storage overhead)
-✗ Requires surrogate key (business key != PK)
-✗ Queries more complex (date conditions)
+Contras:
+✗ Más **rows** (**overhead** de **storage**)
+✗ Requiere **surrogate key** (**business key** != **PK**)
+✗ **Queries** más complejos (condiciones de **date**)
 
-Use cases:
+Casos de uso:
 
-Most analytics (default choice)
+La mayoría de los **analytics** (opción **default**)
 
-Audited industries (HIPAA, PCI, GDPR)
+Industrias auditadas (**HIPAA**, **PCI**, **GDPR**)
 
-Price/cost sensitive analysis
-
-text
+Análisis **price**/**cost sensitive**
 
 ---
 
-## SCD Type 3: Add Columns (Recent History)
+## SCD Type 3: Add Columns (History Reciente)
 
+```sql
 CREATE TABLE dim_product_type3 (
 product_id INT PRIMARY KEY,
 product_name VARCHAR(100),
@@ -200,39 +196,39 @@ price_current = 99.00,
 price_updated_date = NOW(),
 updated_at = NOW()
 WHERE product_id = 1;
--- Result: price_current=99, price_previous=120
+-- Resultado: price_current=99, price_previous=120
 
 -- Query: "Current and previous price"
 SELECT price_current, price_previous FROM dim_product_type3 WHERE product_id = 1;
--- Returns: current=99, previous=120 (CORRECT for recent)
+-- Retorna: current=99, previous=120 (CORRECTO para reciente)
 
--- Query: "What was price 3 months ago?"
--- Cannot answer! Only have current + 1 previous
+-- Query: "¿Cuál era el price hace 3 meses?"
+-- ¡No se puede responder! Solo se tiene current + 1 previous
+```
 
 Pros:
-✓ Balance between Type 1 and Type 2
-✓ Slightly more history than Type 1
-✓ Less storage than Type 2
+✓ Balance entre **Type 1** y **Type 2**
+✓ Un poco más de **history** que **Type 1**
+✓ Menos **storage** que **Type 2**
 
-Cons:
-✗ Cannot answer "what if" for old dates
-✗ Limited history (only 2 versions)
-✗ Complex schema (many [field]_current, [field]_previous columns)
+Contras:
+✗ No puede responder "**what if**" para **old dates**
+✗ Limited **history** (solo 2 **versions**)
+✗ **Schema** complejo (muchas columnas [**field**]\_current, [**field**]\_previous)
 
-Use cases:
+Casos de uso:
 
-Only need recent previous value
+Solo se necesita el **previous value** reciente
 
-Storage constrained
+**Storage** limitado
 
-Rare
-
-text
+Raro
 
 ---
 
 ## SCD Type 4: History Table (Hybrid)
 
+```sql
 -- Current table (Type 1)
 CREATE TABLE dim_product (
 product_id INT PRIMARY KEY,
@@ -242,7 +238,7 @@ price DECIMAL(10,2),
 updated_at TIMESTAMP
 );
 
--- History table (Type 2 style)
+-- History table (estilo Type 2)
 CREATE TABLE dim_product_history (
 product_history_id INT PRIMARY KEY,
 product_id INT FK,
@@ -253,36 +249,36 @@ valid_from DATE,
 valid_to DATE
 );
 
--- Insert/update pattern:
--- 1. Record current values to history table (before change)
--- 2. Update current table
+-- Patrón de Insert/update:
+-- 1. Registrar los current values en la history table (antes del change)
+-- 2. Updatear la current table
 
 -- Query current:
 SELECT price FROM dim_product WHERE product_id = 1;
 
 -- Query historical:
 SELECT price FROM dim_product_history WHERE product_id = 1 AND valid_to >= date;
+```
 
 Pros:
-✓ Current queries fast (no filtering on dates)
-✓ History preserved (separate table)
+✓ **Current queries** rápidas (sin **filtering** por **dates**)
+✓ **History** preservada (**separate table**)
 
-Cons:
-✗ More complex (2 tables to maintain)
-✗ Application logic (need to manage history)
+Contras:
+✗ Más complejo (2 **tables** para **maintain**)
+✗ **Logic** de la **application** (necesidad de **manage history**)
 
-Use cases:
+Casos de uso:
 
-Need both fast current + historical queries
+Necesidad de **fast current** + **historical queries**
 
-Large dimensions
-
-text
+Large **dimensions**
 
 ---
 
-## Implementation Example: Retail
+## Ejemplo de Implementación: Retail
 
+```sql
 -- Dimension: Store
 CREATE TABLE dim_store_type2 (
 store_key INT PRIMARY KEY,
@@ -299,10 +295,10 @@ INDEX idx_store_id (store_id),
 INDEX idx_current (is_current)
 );
 
--- Scenario: Store relocates, name changes, manager changes
--- 2024-01-01: Store opened, manager = John
+-- Escenario: Store se reubica, name cambia, manager cambia
+-- 2024-01-01: Store abierta, manager = John
 -- 2024-06-01: Manager = Sarah
--- 2024-09-01: Store relocated, new city/region
+-- 2024-09-01: Store reubicada, new city/region
 
 -- Insert 1: Initial
 INSERT INTO dim_store_type2 VALUES (
@@ -324,7 +320,7 @@ INSERT INTO dim_store_type2 VALUES (
 '2024-09-01', '9999-12-31', TRUE
 );
 
--- Analytics query: "Sales by manager, 2024"
+-- Analytics query: "Sales por manager, 2024"
 SELECT
 ds.manager_name,
 SUM(fs.sales_amount) as total_sales
@@ -332,94 +328,89 @@ FROM fact_sales fs
 JOIN dim_store_type2 ds ON fs.store_id = ds.store_id AND fs.date_id >= ds.valid_from AND fs.date_id <= ds.valid_to
 WHERE YEAR(ds.valid_from) = 2024
 GROUP BY ds.manager_name;
--- Correctly attributes sales to manager who was there at time
-
-text
+-- Atribuye correctamente las sales al manager que estuvo allí en ese momento
+```
 
 ---
 
-## Performance: SCD Type 2 Query Optimization
+## Performance: Optimización de Queries de SCD Type 2
 
--- Slow: Multiple conditions
+```sql
+-- Slow: Múltiples conditions
 SELECT price FROM dim_product_type2
 WHERE product_id = 1
 AND valid_from <= '2024-06-15'
 AND valid_to >= '2024-06-15';
--- Date filtering can be slow
+-- El Date filtering puede ser slow
 
--- Fast: Use is_current flag for most queries
+-- Fast: Usar el flag is_current para la mayoría de los queries
 SELECT price FROM dim_product_type2
 WHERE product_id = 1 AND is_current = TRUE;
--- Index on is_current makes this fast
+-- El Index en is_current lo hace fast
 
--- Fast: Partition by date
+-- Fast: Partition por date
 CREATE TABLE dim_product_type2_2024_q2 AS (
 SELECT * FROM dim_product_type2
 WHERE valid_from >= '2024-04-01' AND valid_to <= '2024-06-30'
 );
--- Query partitioned table (smaller scans)
-
-text
+-- Query a la partitioned table (smaller scans)
+```
 
 ---
 
-## Real-World: E-commerce Pricing History
+## Real-World: History de Pricing en E-commerce
 
-Scenario: Amazon tracks product prices for analytics
+Escenario: Amazon trackea los **product prices** para **analytics**
 
-Question: "Elasticity analysis: when we drop price from $100 to $80, how many more units sell?"
+Pregunta: "Análisis de Elasticidad: cuando bajamos el **price** de $100 a $80, ¿cuántas **units** más se venden?"
 
-Without SCD: Cannot answer (only have current price)
-With SCD Type 2: Full price history → can correlate price changes with sales volume
+Sin **SCD**: No se puede responder (solo se tiene el **current price**)
+Con **SCD Type 2**: Full **price history** → se pueden correlacionar los **price changes** con el **sales volume**
 
-Implementation:
+Implementación:
 
-Nightly: Check if price changed
+**Nightly**: Verificar si el **price** cambió
 
-If changed: Close old dim_product row, open new row with new price
+Si cambió: Cerrar la old **dim_product row**, abrir una **new row** con el **new price**
 
-Analytics: JOIN fact_sales with dim_product on date range
+**Analytics**: **JOIN fact_sales** con **dim_product** en el **date range**
 
-Result: Accurate price per transaction date
-
-text
+Resultado: Accurate **price** por **transaction date**
 
 ---
 
 ## Errores Comunes en Entrevista
 
-- **Error**: "Type 1 is sufficient" → **Solución**: Wrong! Historical analysis breaks
+- **Error**: "Type 1 is sufficient" → **Solución**: ¡Incorrecto! El **historical analysis** se rompe
 
-- **Error**: Forgetting surrogate key (use business key as PK)** → **Solución**: Business key can change, need stable PK
+- **Error**: Olvidar la **surrogate key** (usar **business key** como **PK**) → **Solución**: La **business key** puede cambiar, se necesita un **PK stable**
 
-- **Error**: Not filtering dates in joins** → **Solución**: Join without date range = cartesian product nightmare
+- **Error**: No filtrar **dates** en los **joins** → **Solución**: Un **Join** sin **date range** = pesadilla de **cartesian product**
 
-- **Error**: Too many Type 2 dimensions** → **Solución**: Storage explodes. Use Type 1 for rarely-changing attrs
+- **Error**: Demasiadas **Type 2 dimensions** → **Solución**: El **Storage** explota. Usar **Type 1** para **attributes** que cambian raramente
 
 ---
 
 ## Preguntas de Seguimiento
 
-1. **"¿Cuándo Type 1 vs Type 2?"**
-   - Type 1: Non-critical (description, color)
-   - Type 2: Audited (price, location, status)
+1.  **"¿Cuándo Type 1 vs Type 2?"**
+    - **Type 1**: Non-critical (description, color)
+    - **Type 2**: Audited (**price**, **location**, **status**)
 
-2. **"¿Performance of Type 2 queries?"**
-   - Slower (date filtering)
-   - Mitigate: is_current flag, partitioning, indexing
+2.  **"¿Performance de los Type 2 queries?"**
+    - Slower (**date filtering**)
+    - Mitigar: **is_current flag**, **partitioning**, **indexing**
 
-3. **"¿Deletes in SCD Type 2?"**
-   - Don't delete, just set valid_to to yesterday
-   - Preserves history, soft delete
+3.  **"¿Deletes en SCD Type 2?"**
+    - No **deletear**, solo setear **valid_to** a **yesterday**
+    - Preserva **history**, **soft delete**
 
-4. **"¿SCD for both dimensions and facts?"**
-   - Dimension: Always SCD (track attribute changes)
-   - Fact: Never SCD (facts don't change, only added)
+4.  **"¿SCD para dimensions y facts?"**
+    - **Dimension**: Siempre **SCD** (trackea **attribute changes**)
+    - **Fact**: Nunca **SCD** (**facts** no cambian, solo se añaden)
 
 ---
 
-## References
+## Referencias
 
 - [SCD Types - Ralph Kimball](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/slowly-changing-dimensions/)
-- [SCD Implementation - Databricks](https://docs.databricks.com/solutions/data-warehousing.html)
-

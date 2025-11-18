@@ -1,15 +1,12 @@
-# Security & Compliance en Cloud
+# Seguridad & Compliance en la Nube
 
-**Tags**: #cloud #security #compliance #gdpr #hipaa #vpc #iam #encryption #real-interview  
-**Empresas**: Amazon, Google, Meta, JPMorgan, Goldman Sachs  
-**Dificultad**: Senior  
-**Tiempo estimado**: 20 min  
+**Tags**: #cloud #security #compliance #gdpr #hipaa #vpc #iam #encryption #real-interview
 
 ---
 
 ## TL;DR
 
-**Cloud Security** = shared responsibility model (cloud provider secures infrastructure, you secure data + access). **Key layers**: VPC (network isolation), IAM (access control), encryption (at-rest, in-transit), audit logs. **Compliance**: GDPR (personal data), HIPAA (health data), PCI-DSS (credit cards), SOC 2 (audit). Most companies: GDPR + SOC 2 minimum.
+**Cloud Security** = modelo de responsabilidad compartida (proveedor de nube asegura infraestructura, tú aseguras data + acceso). **Capas clave**: VPC (aislamiento de red), IAM (control de acceso), encryption (at-rest, in-transit), audit logs. **Compliance**: GDPR (datos personales), HIPAA (datos de salud), PCI-DSS (tarjetas de crédito), SOC 2 (auditoría). La mayoría de empresas: GDPR + SOC 2 como mínimo.
 
 ---
 
@@ -21,7 +18,7 @@
 
 ---
 
-## Memory Trick
+## Truco de Memoria
 
 **"Castillo con murallas"** — VPC = muralla. IAM = guardias (quién entra). Encryption = bóveda (data segura). Audit logs = vigilancia (quién hizo qué).
 
@@ -29,398 +26,465 @@
 
 ## Cómo explicarlo en entrevista
 
-**Paso 1**: "Cloud security = shared responsibility. Cloud provider = infrastructure, you = data + access"
+**Paso 1**: "Cloud security = responsabilidad compartida. Cloud provider = infraestructura, tú = data + acceso"
 
-**Paso 2**: "Layers: VPC (network), IAM (access), encryption (data), audit (logging)"
+**Paso 2**: "Capas: VPC (red), IAM (acceso), encryption (datos), audit (logging)"
 
-**Paso 3**: "Compliance = GDPR (EU), HIPAA (health), PCI-DSS (payment), SOC 2 (audit)"
+**Paso 3**: "Compliance = GDPR (EU), HIPAA (salud), PCI-DSS (pago), SOC 2 (auditoría)"
 
-**Paso 4**: "Real-world: VPC isolation, least-privilege IAM, encryption everywhere, audit trails"
+**Paso 4**: "Real: aislamiento VPC, IAM con least-privilege, encryption en todos lados, audit trails"
 
 ---
 
 ## Código/Ejemplos
 
-### Part 1: VPC (Network Isolation)
+### Part 1: VPC (Aislamiento de Red)
 
-What: Virtual Private Cloud (your own network in cloud)
-Why: Isolate resources, control traffic, protect data
+Qué es: Virtual Private Cloud (tu propia red en la nube)
+Por qué: Aislar recursos, controlar tráfico, proteger datos
 
-Architecture:
+Arquitectura:
+
+```
 ┌─────────────────────────────────────────────┐
-│ VPC: 10.0.0.0/16 (my private network) │
+│ VPC: 10.0.0.0/16 (mi red privada)           │
 ├─────────────────────────────────────────────┤
-│ │
-│ Public Subnet 1 (10.0.1.0/24) │
-│ ├─ NAT Gateway (for egress) │
-│ └─ Bastion Host (SSH jump) │
-│ │
-│ Private Subnet 1 (10.0.10.0/24) │
-│ ├─ Database (no internet access) │
-│ └─ Application servers │
-│ │
-│ Private Subnet 2 (10.0.20.0/24) [us-east-2]
-│ └─ Backup database (redundancy) │
-│ │
-│ VPN Connection (on-prem access) │
-│ └─ Site-to-site VPN to head office │
-│ │
+│                                             │
+│ Public Subnet 1 (10.0.1.0/24)               │
+│ ├─ NAT Gateway (salida)                     │
+│ └─ Bastion Host (SSH jump)                  │
+│                                             │
+│ Private Subnet 1 (10.0.10.0/24)             │
+│ ├─ Base de datos (sin acceso a internet)    │
+│ └─ Servidores de aplicación                 │
+│                                             │
+│ Private Subnet 2 (10.0.20.0/24) [us-east-2] │
+│ └─ Base de datos backup (redundancia)      │
+│                                             │
+│ VPN Connection (acceso on-prem)             │
+│ └─ VPN site-to-site con oficina central     │
+│                                             │
 └─────────────────────────────────────────────┘
+```
 
-Security Groups (firewall per instance):
-├─ Web tier: Allow port 443 (HTTPS) from internet
-├─ App tier: Allow port 8080 from web tier only
-└─ DB tier: Allow port 5432 from app tier only
+Security Groups (firewall por instancia):
 
-Network ACLs (firewall per subnet):
-├─ Inbound: Allow specific IPs/ports
-└─ Outbound: Deny internet (only VPN)
+```text
+├─ Web tier: Permitir puerto 443 (HTTPS) desde internet
+├─ App tier: Permitir puerto 8080 solo desde web tier
+└─ DB tier: Permitir puerto 5432 solo desde app tier
+```
 
-Benefits:
-✓ Isolation: Cannot access database from internet
-✓ Control: Know exactly what traffic is allowed
-✓ Compliance: Network segmentation requirement (HIPAA, PCI)
+Network ACLs (firewall por subnet):
 
-text
+```text
+├─ Inbound: Permitir IPs/puertos específicos
+└─ Outbound: Negar internet (solo VPN)
+```
 
-### Part 2: IAM (Identity & Access Management)
+Beneficios:
 
-What: Who can do what with cloud resources
-Why: Least-privilege principle (minimal access needed)
+```text
+✓ Aislamiento: No se puede acceder a la base de datos desde internet
+✓ Control: Saber exactamente qué tráfico está permitido
+✓ Compliance: Requisito de segmentación de red (HIPAA, PCI)
+```
 
-Structure:
+### Part 2: IAM (Gestión de Identidad y Acceso)
+
+Qué es: Quién puede hacer qué con los recursos de nube
+Por qué: Principio de least-privilege (acceso mínimo necesario)
+
+Estructura:
+
+```text
 ┌─────────────────────────────────┐
-│ AWS Account (root = never use!) │
+│ AWS Account (root = ¡nunca!)    │
 ├─────────────────────────────────┤
-│ Users │
-│ ├─ alice@company.com │
-│ ├─ bob@company.com │
-│ └─ ci-cd-service │
-│ │
-│ Groups │
-│ ├─ DataEngineers │
-│ ├─ Analysts │
-│ └─ DevOps │
-│ │
-│ Roles (for services) │
-│ ├─ LambdaExecutionRole │
-│ ├─ EC2InstanceRole │
-│ └─ SparkClusterRole │
-│ │
-│ Policies (permissions) │
-│ ├─ ReadS3 │
-│ ├─ WriteRedshift │
-│ └─ ManageLambda │
+│ Usuarios                        │
+│ ├─ alice@company.com            │
+│ ├─ bob@company.com              │
+│ └─ ci-cd-service                │
+│                                 │
+│ Grupos                          │
+│ ├─ DataEngineers                │
+│ ├─ Analysts                     │
+│ └─ DevOps                       │
+│                                 │
+│ Roles (para servicios)          │
+│ ├─ LambdaExecutionRole          │
+│ ├─ EC2InstanceRole               │
+│ └─ SparkClusterRole             │
+│                                 │
+│ Políticas (permisos)            │
+│ ├─ ReadS3                       │
+│ ├─ WriteRedshift                │
+│ └─ ManageLambda                 │
 └─────────────────────────────────┘
+```
 
-Least-Privilege Example:
+Ejemplo de Least-Privilege:
 
-❌ BAD Policy (too permissive):
+❌ MALA Política (demasiado permisiva):
+
+```json
 {
-"Effect": "Allow",
-"Action": "s3:", # ALL S3 actions
-"Resource": "" # ALL S3 buckets
+  "Effect": "Allow",
+  "Action": "s3:*",
+  "Resource": "*"
 }
+```
 
-Alice can delete entire data lake!
-✅ GOOD Policy (least-privilege):
+¡Alice puede eliminar todo el data lake!
+
+✅ BUENA Política (least-privilege):
+
+```json
 {
-"Effect": "Allow",
-"Action": [
-"s3:GetObject",
-"s3:ListBucket"
-],
-"Resource": [
-"arn:aws:s3:::data-lake/raw/*"
-]
+  "Effect": "Allow",
+  "Action": ["s3:GetObject", "s3:ListBucket"],
+  "Resource": ["arn:aws:s3:::data-lake/raw/*"]
 }
+```
 
-Alice can only READ files in specific bucket
-Multi-factor authentication (MFA):
-┌─ User enters username + password
-├─ AWS asks for 2FA code (phone/app)
-└─ Only then: access granted
+Alice solo puede LEER archivos en bucket específico
 
-Temporary credentials (for Lambda/EC2):
+Autenticación Multi-Factor (MFA):
+
+```text
+┌─ Usuario ingresa usuario + contraseña
+├─ AWS solicita código 2FA (teléfono/app)
+└─ Solo luego: acceso concedido
+```
+
+Credenciales temporales (para Lambda/EC2):
+
+```text
 ┌─ Lambda role: LambdaExecutionRole
-├─ Permissions: S3 read, DynamoDB write
-└─ Session token (valid 1 hour, expires automatically)
+├─ Permisos: lectura S3, escritura DynamoDB
+└─ Session token (válido 1 hora, expira automáticamente)
+```
 
-text
+### Part 3: Encryption (Cifrado)
 
-### Part 3: Encryption
+Qué es: Codificar datos para que solo usuarios autorizados puedan leer
+Por qué: Requisito de compliance + mejor práctica de seguridad
 
-What: Scrambling data so only authorized users can read
-Why: Compliance requirement + security best practice
+Tipos:
 
-Types:
+Cifrado At-Rest (datos almacenados):
 
-At-Rest Encryption (data stored)
-├─ S3: Enable default encryption (AES-256)
-├─ Database: RDS with encryption enabled
-├─ EBS volumes: Encrypted snapshots
-└─ Key management: AWS KMS (Key Management Service)
+```text
+├─ S3: Habilitar cifrado por defecto (AES-256)
+├─ Base de datos: RDS con cifrado habilitado
+├─ Volúmenes EBS: Snapshots cifrados
+└─ Gestión de claves: AWS KMS (Key Management Service)
+```
 
-In-Transit Encryption (data moving)
+Cifrado In-Transit (datos en movimiento):
+
+```text
 ├─ HTTPS (TLS 1.2+)
-├─ VPN (encrypted tunnel on-prem to cloud)
-├─ Database connections: SSL/TLS required
-└─ Lambda to S3: Always HTTPS
+├─ VPN (túnel cifrado on-prem a cloud)
+├─ Conexiones a base de datos: SSL/TLS requerido
+└─ Lambda a S3: Siempre HTTPS
+```
 
-Client-Side Encryption (app layer)
-├─ Encrypt before uploading to S3
-├─ PII masking in application code
-└─ Tokenization (replace SSN → token)
+Cifrado Client-Side (capa de app):
 
-Real-world implementation:
+```text
+├─ Cifrar antes de subir a S3
+├─ Enmascarar PII en código de aplicación
+└─ Tokenización (reemplazar SSN → token)
+```
 
-AWS S3 with default encryption
-aws s3api put-bucket-encryption
---bucket my-data-lake
---server-side-encryption-configuration '{
-"Rules": [{
-"ApplyServerSideEncryptionByDefault": {
-"SSEAlgorithm": "AES256"
-}
-}]
-}'
+Implementación real:
 
-Database with encryption
-aws rds create-db-instance
---db-instance-identifier prod-db
---storage-encrypted
---kms-key-id arn:aws:kms:us-east-1:123456789:key/xxx
+AWS S3 con cifrado por defecto:
 
-Connection string (enforces TLS)
+```bash
+aws s3api put-bucket-encryption \
+  --bucket my-data-lake \
+  --server-side-encryption-configuration '{
+    "Rules": [{
+      "ApplyServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+      }
+    }]
+  }'
+```
+
+Base de datos con cifrado:
+
+```bash
+aws rds create-db-instance \
+  --db-instance-identifier prod-db \
+  --storage-encrypted \
+  --kms-key-id arn:aws:kms:us-east-1:123456789:key/xxx
+```
+
+Connection string (obliga TLS):
+
+```
 postgresql://user:pass@db.aws.com:5432/mydb?sslmode=require
+```
 
-Performance impact:
+Impacto en performance:
 
-At-rest: ~5% overhead (negligible)
+| Tipo       | Overhead                  |
+| ---------- | ------------------------- |
+| At-rest    | ~5% (negligible)          |
+| In-transit | ~2% (negligible)          |
+| Encryption | Obligatorio (no opcional) |
 
-In-transit: ~2% overhead (negligible)
+### Part 4: Auditoría y Logging & Compliance
 
-Encryption = mandatory (not optional)
+Qué es: Registrar quién hizo qué, cuándo, dónde
+Por qué: Detectar brechas, requisito de compliance, debugging
 
-text
+Audit trails (Pistas de auditoría):
 
-### Part 4: Audit Logging & Compliance
+AWS CloudTrail (logging de API):
 
-What: Track who did what, when, where
-Why: Detect breaches, compliance requirement, debugging
+```text
+┌─ Cada llamada a API de AWS se registra
+├─ Quién: Usuario/role que hizo la llamada
+├─ Qué: Acción realizada
+├─ Cuándo: Timestamp
+├─ Dónde: Región, dirección IP
+└─ Recurso: Qué recurso fue afectado
+```
 
-Audit trails:
+Ejemplo:
 
-AWS CloudTrail (API logging):
-┌─ Every AWS API call logged
-├─ Who: User/role that made call
-├─ What: Action performed
-├─ When: Timestamp
-├─ Where: Region, IP address
-└─ Resource: Which resource affected
-
-Example:
+```json
 {
-"eventName": "CreateDBInstance",
-"eventTime": "2024-01-15T10:30:45Z",
-"userIdentity": {"principalId": "alice@company.com"},
-"sourceIPAddress": "203.0.113.42",
-"awsRegion": "us-east-1",
-"requestParameters": {
-"dBInstanceIdentifier": "prod-db-1",
-"storageEncrypted": true
+  "eventName": "CreateDBInstance",
+  "eventTime": "2024-01-15T10:30:45Z",
+  "userIdentity": { "principalId": "alice@company.com" },
+  "sourceIPAddress": "203.0.113.42",
+  "awsRegion": "us-east-1",
+  "requestParameters": {
+    "dBInstanceIdentifier": "prod-db-1",
+    "storageEncrypted": true
+  }
 }
-}
+```
 
-VPC Flow Logs (network logging):
-┌─ Every network packet logged
-├─ Source/destination IP
-├─ Port, protocol
-├─ Accept/reject
-└─ Bytes transferred
+VPC Flow Logs (logging de red):
 
-S3 Access Logs (object logging):
-┌─ Every S3 GET/PUT/DELETE logged
-├─ Who accessed
-├─ Object name
-└─ When
+```text
+├─ Cada paquete de red se registra
+├─ IP origen/destino
+├─ Puerto, protocolo
+├─ Aceptado/rechazado
+└─ Bytes transferidos
+```
 
-CloudWatch Alarms:
-├─ Alert if root account used
-├─ Alert if non-encrypted data written
-├─ Alert if unusual access pattern
-└─ Alert if compliance violation
+S3 Access Logs (logging de objetos):
+
+```text
+├─ Quién accedió
+├─ Nombre del objeto
+└─ Cuándo
+```
+
+CloudWatch Alarms (Alertas):
+
+```text
+├─ Alerta si se usa cuenta root
+├─ Alerta si se escriben datos sin cifrar
+├─ Alerta si patrón de acceso inusual
+└─ Alerta si violación de compliance
+```
 
 Configuration auditing (AWS Config):
-┌─ Track resource configuration changes
-├─ Alert if security group modified
-├─ Alert if encryption disabled
-└─ Alert if resource created in wrong region
 
-Retention policy:
-├─ CloudTrail: 7 years (compliance requirement)
-├─ VPC Logs: 1 year (operational)
-└─ S3 Access: 90 days (storage cost trade-off)
+```text
+┌─ Registrar cambios en configuración de recursos
+├─ Alerta si security group es modificado
+├─ Alerta si cifrado es deshabilitado
+└─ Alerta si recurso creado en región incorrecta
+```
 
-text
+Política de retención:
+
+```text
+├─ CloudTrail: 7 años (requisito de compliance)
+├─ VPC Logs: 1 año (operacional)
+└─ S3 Access: 90 días (costo de almacenamiento)
+```
 
 ### Part 5: Compliance Frameworks
 
-GDPR (General Data Protection Regulation - EU)
+GDPR (Regulación General de Protección de Datos - EU)
 
-What: Protect personal data of EU citizens
-Applies: Any company processing EU residents' data
+Qué es: Proteger datos personales de ciudadanos de la EU
+Se aplica: Cualquier empresa que procesa datos de residentes de la EU
 
-Requirements:
-├─ Consent: Get permission before collecting data
-├─ Right to Access: User can request their data
-├─ Right to Deletion: User can delete their data ("right to be forgotten")
-├─ Data Minimization: Collect only what needed
-├─ Encryption: At-rest and in-transit
-├─ Audit trails: Log who accessed data
-└─ Incident reporting: Report breaches within 72h
+Requisitos:
 
-Implementation in cloud:
-┌─ Encryption everywhere (at-rest, in-transit)
-├─ VPC + IAM (access control)
-├─ CloudTrail logging (audit)
-├─ Data retention policies (delete old data)
-└─ Incident response plan
+```text
+├─ Consentimiento: Obtener permiso antes de recopilar datos
+├─ Derecho de Acceso: Usuario puede solicitar sus datos
+├─ Derecho de Eliminación: Usuario puede eliminar sus datos ("derecho al olvido")
+├─ Minimización de Datos: Recopilar solo lo necesario
+├─ Encryption: At-rest e in-transit
+├─ Audit trails: Registrar quién accedió datos
+└─ Reporte de incidentes: Reportar brechas dentro de 72h
+```
 
-HIPAA (Health Insurance Portability and Accountability - USA)
+Implementación en cloud:
 
-What: Protect health information (PHI - Protected Health Information)
-Applies: Healthcare providers, insurers, cloud providers storing health data
+```text
+┌─ Encryption en todos lados (at-rest, in-transit)
+├─ VPC + IAM (control de acceso)
+├─ CloudTrail logging (auditoría)
+├─ Políticas de retención de datos (eliminar datos viejos)
+└─ Plan de respuesta a incidentes
+```
 
-Requirements:
-├─ Encryption (AES-256 or stronger)
-├─ Access controls (authentication, authorization)
-├─ Audit logs (track all PHI access)
-├─ Secure deletion (don't leave data on decommissioned disks)
-├─ Breach notification (notify patients if data leaked)
-└─ Business Associate Agreements (BAAs - contracts with vendors)
+HIPAA (Ley de Portabilidad y Responsabilidad del Seguro Médico - USA)
 
-More strict than GDPR (healthcare is sensitive)
+Qué es: Proteger información de salud (PHI - Protected Health Information)
+Se aplica: Proveedores de salud, aseguradoras, proveedores de nube con datos de salud
 
-PCI-DSS (Payment Card Industry Data Security Standard - USA)
+Requisitos:
 
-What: Protect credit card data
-Applies: Any company processing credit cards
+```text
+├─ Encryption (AES-256 o más fuerte)
+├─ Controles de acceso (autenticación, autorización)
+├─ Audit logs (registrar todos los accesos a PHI)
+├─ Eliminación segura (no dejar datos en discos desmantelados)
+├─ Notificación de brechas (notificar pacientes si datos se filtran)
+└─ Acuerdos Asociado de Negocios (BAAs - contratos con proveedores)
+```
 
-Requirements:
-├─ Network segmentation (card data in separate network)
-├─ Encryption (card data always encrypted)
-├─ No default passwords (change AWS root password!)
-├─ Strong access controls (IAM roles)
-├─ Audit logs (track card data access)
-├─ Vulnerability scanning (penetration testing)
-├─ Incident response plan
-└─ Annual compliance audit (external auditor)
+Más estricto que GDPR (la salud es sensible)
 
-Strictest (payment fraud = immediate problem)
+PCI-DSS (Estándar de Seguridad de Datos de Industria de Tarjetas de Pago - USA)
+
+Qué es: Proteger datos de tarjetas de crédito
+Se aplica: Cualquier empresa que procesa tarjetas de crédito
+
+Requisitos:
+
+```text
+├─ Segmentación de red (datos de tarjetas en red separada)
+├─ Encryption (datos de tarjetas siempre cifrados)
+├─ Sin contraseñas por defecto (¡cambiar contraseña root de AWS!)
+├─ Controles de acceso fuertes (roles IAM)
+├─ Audit logs (registrar acceso a datos de tarjetas)
+├─ Escaneo de vulnerabilidades (penetration testing)
+├─ Plan de respuesta a incidentes
+└─ Auditoría de compliance anual (auditor externo)
+```
+
+El más estricto (fraude de pago = problema inmediato)
 
 SOC 2 (Service Organization Control - USA)
 
-What: Audit of security/compliance of service provider
-Applies: B2B SaaS companies, cloud providers
+Qué es: Auditoría de seguridad/compliance del proveedor de servicios
+Se aplica: Empresas B2B SaaS, proveedores de nube
 
-Requirements:
-├─ Security (prevent unauthorized access)
-├─ Availability (uptime commitments)
-├─ Processing integrity (data accurate and complete)
-├─ Confidentiality (data not disclosed)
-└─ Privacy (personal data handled correctly)
+Requisitos:
 
-Type 1: Snapshot at a point in time
-Type 2: Audit over 6-12 months (preferred by customers)
+```text
+├─ Seguridad (prevenir acceso no autorizado)
+├─ Disponibilidad (compromisos de uptime)
+├─ Integridad de procesamiento (datos precisos y completos)
+├─ Confidencialidad (datos no se divulgan)
+└─ Privacidad (datos personales manejados correctamente)
+```
 
-Cost: $50k-200k per audit (annual)
+Tipo 1: Snapshot en un punto en el tiempo
 
-text
+Tipo 2: Auditoría sobre 6-12 meses (preferido por clientes)
+
+Costo: $50k-200k por auditoría (anual)
 
 ---
 
-## Real-World: Compliance Checklist
+## Mundo Real: Checklist de Compliance
 
-Compliance audit checklist
+Checklist de auditoría de compliance:
+
+```python
 class ComplianceAudit:
-def gdpr_audit(self):
-"""EU personal data protection"""
-checks = {
-"Encryption at-rest": self.check_s3_encryption(),
-"Encryption in-transit": self.check_tls_enforcement(),
-"Access controls": self.check_iam_policies(),
-"Audit logs": self.check_cloudtrail_enabled(),
-"Data retention": self.check_retention_policies(),
-"Incident response": self.check_incident_plan(),
-}
+    def gdpr_audit(self):
+        """Protección de datos personales de EU"""
+        checks = {
+            "Cifrado at-rest": self.check_s3_encryption(),
+            "Cifrado in-transit": self.check_tls_enforcement(),
+            "Controles de acceso": self.check_iam_policies(),
+            "Audit logs": self.check_cloudtrail_enabled(),
+            "Retención de datos": self.check_retention_policies(),
+            "Respuesta a incidentes": self.check_incident_plan(),
+        }
 
-text
-    if not all(checks.values()):
-        return "FAIL: Not GDPR compliant"
-    return "PASS: GDPR compliant"
+        if not all(checks.values()):
+            return "FALLA: No es compliant con GDPR"
+        return "PASA: Es compliant con GDPR"
 
-def hipaa_audit(self):
-    """Health data protection (stricter than GDPR)"""
-    checks = {
-        "Encryption": self.check_aes256_encryption(),
-        "Network isolation": self.check_vpc_isolation(),
-        "Access logging": self.check_hipaa_audit_logs(),
-        "BAA signed": self.check_baa_with_aws(),
-        "Breach response": self.check_breach_procedure(),
-    }
-    
-    if not all(checks.values()):
-        return "FAIL: Not HIPAA compliant"
-    return "PASS: HIPAA compliant"
+    def hipaa_audit(self):
+        """Protección de datos de salud (más estricto que GDPR)"""
+        checks = {
+            "Cifrado": self.check_aes256_encryption(),
+            "Aislamiento de red": self.check_vpc_isolation(),
+            "Acceso logging": self.check_hipaa_audit_logs(),
+            "BAA firmado": self.check_baa_with_aws(),
+            "Respuesta de brechas": self.check_breach_procedure(),
+        }
 
-def check_s3_encryption(self):
-    # Verify S3 default encryption enabled
-    response = s3.get_bucket_encryption(Bucket='my-bucket')
-    return 'Rules' in response.get('ServerSideEncryptionConfiguration', {})
-Result: Report to auditors (SOC 2 type 2, GDPR, HIPAA)
-text
+        if not all(checks.values()):
+            return "FALLA: No es compliant con HIPAA"
+        return "PASA: Es compliant con HIPAA"
+
+    def check_s3_encryption(self):
+        """Verificar que cifrado por defecto de S3 está habilitado"""
+        response = s3.get_bucket_encryption(Bucket='my-bucket')
+        return 'Rules' in response.get('ServerSideEncryptionConfiguration', {})
+```
+
+Resultado: Reportar a auditores (SOC 2 type 2, GDPR, HIPAA)
 
 ---
 
 ## Errores Comunes en Entrevista
 
-- **Error**: "Public cloud no es seguro" → **Solución**: Cloud = más seguro que on-prem (AWS invierte billions)
+- **Error**: "Cloud público no es seguro" → **Solución**: Cloud = más seguro que on-prem (AWS invierte miles de millones)
 
-- **Error**: "Encryption es suficiente" → **Solución**: Encryption is ONE layer. Also need: IAM, VPC, audit logs
+- **Error**: "Encryption es suficiente" → **Solución**: Encryption es UNA capa. También necesitas: IAM, VPC, audit logs
 
-- **Error**: "Compliance es IT responsibility" → **Solución**: Everyone (engineers, managers) owns compliance
+- **Error**: "Compliance es responsabilidad de IT" → **Solución**: Todos (ingenieros, managers) somos responsables de compliance
 
-- **Error**: Storing credentials in code → **Solución**: Use IAM roles (temporary credentials, auto-rotate)
+- **Error**: Guardar credenciales en código → **Solución**: Usa IAM roles (credenciales temporales, auto-rotate)
 
 ---
 
 ## Preguntas de Seguimiento
 
-1. **"¿Cuándo usar VPC vs Security Groups?"**
-   - VPC: Network-level isolation (infrastructure)
-   - Security Groups: Application-level rules (per instance)
-   - Both needed (defense in depth)
+1.  **"¿Cuándo usar VPC vs Security Groups?"**
+    - VPC: Aislamiento a nivel de red (infraestructura)
+    - Security Groups: Reglas a nivel de aplicación (por instancia)
+    - Ambos necesarios (defense in depth)
 
-2. **"¿Root account - ever use it?"**
-   - NO (except AWS account setup)
-   - Always use IAM user/role with MFA
+2.  **"¿Cuenta root - alguna vez usarla?"**
+    - NO (excepto setup inicial de AWS account)
+    - Siempre usa usuario/role de IAM con MFA
 
-3. **"¿On-prem vs Cloud security?"**
-   - Cloud: Easier (AWS handles physical security, updates)
-   - On-prem: More control (but more work)
+3.  **"¿Seguridad on-prem vs Cloud?"**
+    - Cloud: Más fácil (AWS maneja seguridad física, actualizaciones)
+    - On-prem: Más control (pero más trabajo)
 
-4. **"¿Incident response: what's first step?"**
-   - Isolate (stop bleeding)
-   - Then: Investigate, notify customers/regulators
+4.  **"¿Respuesta a incidentes: cuál es el primer paso?"**
+    - Aislar (detener sangrado)
+    - Luego: Investigar, notificar clientes/reguladores
 
 ---
 
 ## References
 
-- [AWS Security Best Practices](https://aws.amazon.com/security/best-practices/)
 - [GDPR Compliance - GDPR.eu](https://gdpr-info.eu/)
 - [HIPAA Compliance - HHS.gov](https://www.hhs.gov/hipaa/)
 - [PCI-DSS Standards](https://www.pcisecuritystandards.org/)
-- [SOC 2 Framework](https://www.aicpa.org/interestareas/informationmanagement/soc2.html)
-

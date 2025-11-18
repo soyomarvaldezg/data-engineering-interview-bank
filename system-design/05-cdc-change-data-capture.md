@@ -1,9 +1,6 @@
 # CDC: Change Data Capture Patterns
 
-**Tags**: #system-design #cdc #change-tracking #incremental-load #real-interview  
-**Empresas**: Amazon, Google, Meta, Stripe, Uber  
-**Dificultad**: Senior  
-**Tiempo estimado**: 28 min  
+**Tags**: #system-design #cdc #change-tracking #incremental-load #real-interview
 
 ---
 
@@ -45,8 +42,6 @@ Setup:
 ├─ Load cambios a warehouse
 └─ Update "last_run_time"
 
-text
-
 ### Implementación
 
 -- Source: PostgreSQL (OLTP)
@@ -65,7 +60,7 @@ SET NEW.updated_at = CURRENT_TIMESTAMP;
 
 -- ===== INCREMENTAL LOAD =====
 -- Warehouse query: Solo cambios desde ayer
-SELECT *
+SELECT \*
 FROM customers
 WHERE updated_at >= '2024-01-14 23:00:00' -- last_run_time
 ORDER BY customer_id;
@@ -74,13 +69,11 @@ ORDER BY customer_id;
 -- UPSERT (si existe, update; si no, insert)
 BEGIN TRANSACTION;
 MERGE INTO redshift.customers t
-USING (SELECT * FROM staging) s
+USING (SELECT _ FROM staging) s
 ON t.customer_id = s.customer_id
 WHEN MATCHED THEN UPDATE SET t.email = s.email, t.updated_at = s.updated_at
-WHEN NOT MATCHED THEN INSERT VALUES (s.*);
+WHEN NOT MATCHED THEN INSERT VALUES (s._);
 COMMIT;
-
-text
 
 ### Ventajas & Desventajas
 
@@ -104,8 +97,6 @@ No captura deletes (UPDATE sí, DELETE no)
 
 Timezone issues si multi-region
 
-text
-
 ---
 
 ## Solución 2: Log-Based CDC (Robusto)
@@ -124,8 +115,6 @@ Extracto:
 ├─ Herramientas leen log en tiempo real
 ├─ Parsean cambios
 └─ Stream a Kafka/S3
-
-text
 
 ### Arquitectura
 
@@ -163,8 +152,6 @@ PostgreSQL (OLTP)
 │ (data warehouse) │
 └──────────────────────┘
 
-text
-
 ### Setup: Debezium + Kafka
 
 debezium-config.yaml
@@ -187,11 +174,9 @@ Capture mode
 table.include.list: public.customers,public.orders,public.payments
 
 Output
-topic.prefix: cdc_
+topic.prefix: cdc\_
 transforms: unwrap
 transforms.unwrap.type: io.debezium.transforms.ExtractNewRecordState
-
-text
 
 **Resultado en Kafka:**
 
@@ -216,8 +201,6 @@ text
 "before": {"customer_id": 1001, "name": "Alice"},
 "ts_ms": 1705276900000
 }
-
-text
 
 ### Consumo en Spark Streaming
 
@@ -247,19 +230,16 @@ for row in batch_df.collect():
 op = row["operation"]
 data = row["after_data"]
 
-text
-    if op == "c":  # INSERT
-        insert_to_redshift(data)
-    elif op == "u":  # UPDATE
-        upsert_to_redshift(data)
-    elif op == "d":  # DELETE
-        delete_from_redshift(data)
+if op == "c": # INSERT
+insert_to_redshift(data)
+elif op == "u": # UPDATE
+upsert_to_redshift(data)
+elif op == "d": # DELETE
+delete_from_redshift(data)
 cdc_parsed.writeStream
 .foreachBatch(apply_cdc_to_warehouse)
 .option("checkpointLocation", "s3://checkpoints/cdc_customers")
 .start()
-
-text
 
 ### Ventajas & Desventajas
 
@@ -283,8 +263,6 @@ Overhead en database (logging)
 
 Cost (Kafka cluster, Spark)
 
-text
-
 ---
 
 ## Solución 3: Polling-Based CDC (App-Level)
@@ -297,8 +275,6 @@ Cada cambio:
 ├─ UPDATE customers SET email = ...
 ├─ INSERT INTO change_log (table_name, record_id, operation, timestamp)
 └─ 2 transacciones (atomicity critical)
-
-text
 
 ### Implementación
 
@@ -321,15 +297,13 @@ VALUES ('customers', LAST_INSERT_ID(), 'INSERT', NOW());
 COMMIT;
 
 -- ===== EXTRACT CHANGES =====
-SELECT *
+SELECT \*
 FROM change_log
 WHERE changed_at >= '2024-01-14 23:00:00'
 ORDER BY change_id;
 
 -- ===== CLEANUP =====
 DELETE FROM change_log WHERE changed_at < DATE_SUB(NOW(), INTERVAL 30 DAY);
-
-text
 
 ### Ventajas & Desventajas
 
@@ -351,22 +325,20 @@ Inconsistency risk (si insert ok pero change_log falla)
 
 Overhead (extra inserts)
 
-text
-
 ---
 
 ## Comparación: Query vs Log vs Polling
 
-| Criterio | Query-Based | Log-Based | Polling-Based |
-|----------|-------------|-----------|---------------|
-| **Latency** | Batch (hours) | Real-time | Batch (minutes) |
-| **Accuracy** | Good | Excellent | Good |
-| **DELETE support** | Requires tombstone | Native | Native |
-| **Infrastructure** | None | Kafka, Debezium | None |
-| **Cost** | Low | High | Medium |
-| **Complexity** | Low | High | Medium |
-| **Consistency** | Eventually | Strongly | Eventually |
-| **Recomendación** | Small tables | Large, critical | Medium |
+| Criterio           | Query-Based        | Log-Based       | Polling-Based   |
+| ------------------ | ------------------ | --------------- | --------------- |
+| **Latency**        | Batch (hours)      | Real-time       | Batch (minutes) |
+| **Accuracy**       | Good               | Excellent       | Good            |
+| **DELETE support** | Requires tombstone | Native          | Native          |
+| **Infrastructure** | None               | Kafka, Debezium | None            |
+| **Cost**           | Low                | High            | Medium          |
+| **Complexity**     | Low                | High            | Medium          |
+| **Consistency**    | Eventually         | Strongly        | Eventually      |
+| **Recomendación**  | Small tables       | Large, critical | Medium          |
 
 ---
 
@@ -376,34 +348,32 @@ Problema: CDC events pueden llegar desordenados
 Ej: UPDATE event llega ANTES que INSERT event
 class CDCProcessor:
 
-text
 def process_cdc_event(self, event):
-    """Maneja out-of-order, duplicates"""
-    
+"""Maneja out-of-order, duplicates"""
+
     op = event["op"]
     data = event["data"]
     ts = event["ts"]
-    
+
     # 1. Deduplication (mismo event, múltiples veces)
     if self.is_duplicate(event):
         return  # Skip
-    
+
     # 2. Out-of-order handling
     if op == "u" and not self.record_exists(data["id"]):
         # UPDATE llega pero no existe registro
         # Opción A: Buffer y esperar INSERT (risky)
         # Opción B: Treat como UPSERT (mejor)
         self.upsert(data)
-    
+
     # 3. Delete tracking (soft deletes)
     if op == "d":
         self.soft_delete(data["id"], ts)
-    
+
     # 4. Latest-write-wins (si multiple events same record)
     existing_ts = self.get_record_timestamp(data["id"])
     if ts > existing_ts:
         self.apply_change(op, data)
-text
 
 ---
 
@@ -411,27 +381,26 @@ text
 
 Escenario: 10M customers, cambios al perfil (address, email, phone)
 ===== Option 1: Query-Based (Simple, pero 1h delay) =====
-Cada hora: SELECT * FROM customers WHERE updated_at >= 1h_ago
+Cada hora: SELECT \* FROM customers WHERE updated_at >= 1h_ago
 ===== Option 2: Log-Based (Real-time, Kafka) =====
 Debezium reads PostgreSQL WAL
 Kafka topics: customer-inserts, customer-updates, customer-deletes
 Spark Streaming consumes, applies to Redshift
 Latency: < 5 segundos
 ===== Option 3: Hybrid (Best of both) =====
+
 - Log-based para transaccional (< 5s)
 - Query-based como fallback (nightly reconciliation)
 - Si discrepancia: alert y investigate
-===== IMPLEMENTATION =====
-pipeline = CDCPipeline(
-source_db="postgres",
-method="log-based", # Debezium
-target_warehouse="redshift",
-consistency_check="nightly" # Reconcile cada noche
-)
+  ===== IMPLEMENTATION =====
+  pipeline = CDCPipeline(
+  source_db="postgres",
+  method="log-based", # Debezium
+  target_warehouse="redshift",
+  consistency_check="nightly" # Reconcile cada noche
+  )
 
 pipeline.start()
-
-text
 
 ---
 
@@ -471,5 +440,3 @@ text
 
 - [Debezium CDC - Apache](https://debezium.io/)
 - [PostgreSQL WAL - Documentation](https://www.postgresql.org/docs/current/wal.html)
-- [CDC Patterns - Databricks](https://docs.databricks.com/solutions/data-replication.html)
-

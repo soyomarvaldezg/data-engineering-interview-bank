@@ -1,9 +1,6 @@
 # Pivotar Datos: Convertir Meses en Columnas
 
-**Tags**: #sql #pivot #data-transformation #real-interview  
-**Empresas**: Amazon, Walmart, Adobe  
-**Dificultad**: Senior  
-**Tiempo estimado**: 20 min
+**Tags**: #sql #pivot #data-transformation #real-interview
 
 ---
 
@@ -17,13 +14,13 @@ Usa `CASE WHEN` con `SUM` para pivotar: agrupa por cliente, luego usa CASE para 
 
 - **Qué es**: Transformar filas (meses como valores) en columnas (enero, febrero, etc.)
 - **Por qué importa**: Muy común en reportes BI y data warehousing. Demuestra control sobre transformaciones complejas
-- **Principio clave**: Combina GROUP BY + CASE WHEN para simular pivot, o usa PIVOT si disponible
+- **Principio clave**: Combina `GROUP BY` + `CASE WHEN` para simular pivot, o usa `PIVOT` si disponible
 
 ---
 
 ## Memory Trick
 
-**"De vertical a horizontal"** — Los datos están "verticales" (meses como filas). PIVOT los gira "horizontales" (meses como columnas).
+**"De vertical a horizontal"** — Los datos están "verticales" (meses como filas). `PIVOT` los gira "horizontales" (meses como columnas).
 
 ---
 
@@ -40,63 +37,65 @@ Usa `CASE WHEN` con `SUM` para pivotar: agrupa por cliente, luego usa CASE para 
 ## Código/Query ejemplo
 
 **Entrada (datos "verticales"):**
+
+```
 customer_id | month | amount
 1 | January | 100
 1 | February | 150
 1 | March | 200
 2 | January | 50
 2 | February | 75
-
-text
+```
 
 **Salida deseada (datos "horizontales"):**
+
+```
 customer_id | January | February | March
 1 | 100 | 150 | 200
 2 | 50 | 75 | NULL
-
-text
+```
 
 ### Solución 1: CASE WHEN (funciona en todos los motores)
 
+```sql
 SELECT
-customer_id,
-SUM(CASE WHEN month = 'January' THEN amount ELSE 0 END) as January,
-SUM(CASE WHEN month = 'February' THEN amount ELSE 0 END) as February,
-SUM(CASE WHEN month = 'March' THEN amount ELSE 0 END) as March,
-SUM(CASE WHEN month = 'April' THEN amount ELSE 0 END) as April,
-SUM(CASE WHEN month = 'May' THEN amount ELSE 0 END) as May,
--- ... continúa para todos los meses
-SUM(amount) as Total
+  customer_id,
+  SUM(CASE WHEN month = 'January' THEN amount ELSE 0 END) as January,
+  SUM(CASE WHEN month = 'February' THEN amount ELSE 0 END) as February,
+  SUM(CASE WHEN month = 'March' THEN amount ELSE 0 END) as March,
+  SUM(CASE WHEN month = 'April' THEN amount ELSE 0 END) as April,
+  SUM(CASE WHEN month = 'May' THEN amount ELSE 0 END) as May,
+  -- ... continúa para todos los meses
+  SUM(amount) as Total
 FROM sales
 GROUP BY customer_id
 ORDER BY customer_id;
-
-text
+```
 
 ### Solución 2: PIVOT (SQL Server, Oracle)
 
-SELECT \*
+```sql
+SELECT *
 FROM sales
 PIVOT (
-SUM(amount)
-FOR month IN ('January', 'February', 'March', 'April', 'May')
+  SUM(amount)
+  FOR month IN ('January', 'February', 'March', 'April', 'May')
 )
 ORDER BY customer_id;
-
-text
+```
 
 ### Solución 3: Dynamic PIVOT (Spark SQL)
 
-SELECT \*
+```sql
+SELECT *
 FROM sales
 PIVOT (
-SUM(amount)
-FOR month IN (
-SELECT DISTINCT month FROM sales ORDER BY month
-)
+  SUM(amount)
+  FOR month IN (
+    SELECT DISTINCT month FROM sales ORDER BY month
+  )
 );
-
-text
+```
 
 ---
 
@@ -130,6 +129,7 @@ text
 
 A veces necesitas ir de horizontal a vertical (UNPIVOT):
 
+```sql
 -- De esto (pivotado):
 SELECT customer_id, January, February, March FROM sales_pivot;
 
@@ -139,18 +139,19 @@ UNION ALL
 SELECT customer_id, 'February' as month, February as amount FROM sales_pivot
 UNION ALL
 SELECT customer_id, 'March' as month, March as amount FROM sales_pivot;
-
-text
+```
 
 O usa `UNPIVOT` si tu BD lo soporta:
 
+```sql
 SELECT customer_id, month, amount
 FROM sales_pivot
 UNPIVOT (
-amount FOR month IN (January, February, March)
+  amount FOR month IN (January, February, March)
 );
+```
 
-text
+---
 
 ## Referencias
 

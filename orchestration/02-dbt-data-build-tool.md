@@ -1,23 +1,20 @@
 # dbt: Data Build Tool & SQL Transformations
 
-**Tags**: #dbt #sql-transformations #testing #lineage #analytics-engineering #real-interview  
-**Empresas**: Stripe, Gitlab, Shopify, Airbnb, dbt Labs  
-**Dificultad**: Mid  
-**Tiempo estimado**: 20 min  
+**Tags**: #dbt #sql-transformations #testing #lineage #analytics-engineering #real-interview
 
 ---
 
 ## TL;DR
 
-**dbt** = "SQL-first transformation tool". **Philosophy**: Transformations = SQL code (versioned, tested, documented). **Core**: Models (SQL files), Tests (data quality), Lineage (what depends on what). **Benefit**: Data modeling becomes version-controlled, documented, trustworthy. **Trade-off**: SQL-only (not Python), requires data warehouse.
+**dbt** = "SQL-first transformation tool". **Philosophy**: Las Transformations = SQL code (versioned, tested, documented). **Core**: Models (archivos SQL), Tests (data quality), Lineage (qué depende de qué). **Benefit**: El Data modeling se vuelve version-controlled, documented, trustworthy. **Trade-off**: SQL-only (no Python), requiere un data warehouse.
 
 ---
 
 ## Concepto Core
 
-- **Qué es**: dbt = version-control + testing + documentation for SQL transformations
-- **Por qué importa**: Most transformations are SQL. dbt makes them professional-grade
-- **Principio clave**: "Transform in the warehouse" (not in Python ETL tools)
+- **Qué es**: dbt = version-control + testing + documentation para SQL transformations
+- **Por qué importa**: La mayoría de las transformations son SQL. dbt las convierte en professional-grade
+- **Principio clave**: "Transform in the warehouse" (no en Python ETL tools)
 
 ---
 
@@ -38,9 +35,9 @@ dbt Project Structure:
 
 Workflow:
 
-Write SQL model files
+Escribir SQL model files
 
-dbt run: Execute models in warehouse
+dbt run: Execute models en el warehouse
 
 dbt test: Run data quality tests
 
@@ -48,17 +45,15 @@ dbt docs: Generate lineage documentation
 
 Deploy: Version control, CI/CD pipeline
 
-text
-
 ---
 
 ## dbt Models
 
 -- dbt model: models/staging/stg_customers.sql
--- (Staging layer: minimal transforms, 1:1 with source)
+-- (Staging layer: minimal transforms, 1:1 con la source)
 
 {{ config(
-materialized='table' -- or 'view', 'incremental'
+materialized='table' -- o 'view', 'incremental'
 ) }}
 
 SELECT
@@ -67,24 +62,22 @@ customer_name,
 email,
 created_at,
 CURRENT_TIMESTAMP as dbt_loaded_at
-FROM {{ source('raw', 'customers') }} -- Reference to raw table
+FROM {{ source('raw', 'customers') }} -- Reference a la raw table
 WHERE deleted_at IS NULL
 
 -- Note: {{ }} = Jinja templating (dbt feature)
--- source('raw', 'customers') = defined in models/sources.yml
+-- source('raw', 'customers') = definido en models/sources.yml
 
-text
-undefined
 -- dbt model: models/intermediate/int_customer_orders.sql
 -- (Intermediate: business logic, enrichment)
 
 WITH customers AS (
-SELECT * FROM {{ ref('stg_customers') }}
--- ref() = reference to another model (creates dependency)
+SELECT \* FROM {{ ref('stg_customers') }}
+-- ref() = reference a otro model (crea dependency)
 ),
 
 orders AS (
-SELECT * FROM {{ ref('stg_orders') }}
+SELECT \* FROM {{ ref('stg_orders') }}
 ),
 
 customer_orders AS (
@@ -99,10 +92,8 @@ LEFT JOIN orders o ON c.customer_id = o.customer_id
 GROUP BY c.customer_id, c.customer_name
 )
 
-SELECT * FROM customer_orders
+SELECT \* FROM customer_orders
 
-text
-undefined
 -- dbt model: models/marts/customers.sql
 -- (Mart layer: final, customer-facing)
 
@@ -125,29 +116,27 @@ END as customer_segment,
 last_order_date
 FROM {{ ref('int_customer_orders') }}
 
-text
-
 ---
 
 ## Materialization Types
 
 VIEW (default)
-├─ SQL is executed every query
+├─ SQL es ejecutado en cada query
 ├─ Zero storage
-├─ Latest data always
-└─ Use: Intermediate joins, transformations
+├─ Siempre los Latest data
+└─ Uso: Intermediate joins, transformations
 
 TABLE (materialized)
-├─ SQL executed once, result stored
+├─ SQL ejecutado una vez, resultado almacenado
 ├─ Storage cost
 ├─ Fast queries (no computation)
-└─ Use: Final marts, frequently queried
+└─ Uso: Final marts, frequently queried
 
 INCREMENTAL
-├─ First run: Full table
-├─ After: Only new/updated rows
+├─ Primera ejecución: Full table
+├─ Después: Solo new/updated rows
 ├─ Storage + speed optimized
-└─ Use: Large fact tables (daily updates)
+└─ Uso: Large fact tables (daily updates)
 
 Example:
 {{ config(
@@ -164,10 +153,8 @@ order_date
 FROM {{ source('raw', 'orders') }}
 {% if execute %}
 WHERE order_date > (SELECT MAX(order_date) FROM {{ this }})
--- Only load NEW orders
+-- Solo cargar NEW orders
 {% endif %}
-
-text
 
 ---
 
@@ -198,8 +185,6 @@ not_null
 
 unique
 
-text
-undefined
 models/marts/schema.yml
 version: 2
 
@@ -231,18 +216,14 @@ tests:
 accepted_values:
 values: # Valid ranges
 
-text
-undefined
 -- Custom test: tests/assert_no_null_emails.sql
--- (Test that emails are not null)
+-- (Test que los emails no son null)
 
-SELECT COUNT(*)
+SELECT COUNT(\*)
 FROM {{ ref('customers') }}
 WHERE email IS NULL
 
--- If this returns > 0, test FAILS
-
-text
+-- Si esto retorna > 0, el test FAILS
 
 **Running tests:**
 dbt test
@@ -251,13 +232,12 @@ Output:
 ✓ unique constraint on customers.customer_id: PASS
 ✓ not_null constraint on customers.email: PASS
 ✗ assert_no_null_emails: FAIL (10 null emails found)
-text
 
 ---
 
 ## Lineage & Dependency Management
 
-Dependency graph (auto-generated by dbt):
+Dependency graph (auto-generated por dbt):
 
 raw.customers ────┐
 ├──> stg_customers ──┐
@@ -265,21 +245,19 @@ raw.orders ───────┤ ├──> int_customer_orders ──┐
 └──> stg_orders ─────┤ ├──> customers (MART)
 └─────────────────────────┘
 
-dbt knows:
-├─ If source changes → stg_customers must refresh
-├─ If stg_customers changes → int_customer_orders must refresh
-├─ If int_customer_orders changes → customers must refresh
-└─ Auto-selects correct execution order
+dbt sabe:
+├─ Si la source cambia → stg_customers debe refresh
+├─ Si stg_customers cambia → int_customer_orders debe refresh
+├─ Si int_customer_orders cambia → customers debe refresh
+└─ Auto-selects el execution order correcto
 
 Commands:
-dbt run # Run all models
-dbt run --select customers # Run only customers + dependencies
-dbt run --select +customers # Run customers + all upstream
-dbt run --select customers+ # Run customers + all downstream
-dbt test # Test all models
+dbt run # Run todos los models
+dbt run --select customers # Run solo customers + dependencies
+dbt run --select +customers # Run customers + todos los upstream
+dbt run --select customers+ # Run customers + todos los downstream
+dbt test # Test todos los models
 dbt docs generate # Generate lineage documentation
-
-text
 
 ---
 
@@ -300,12 +278,10 @@ models:
 ecommerce_analytics:
 materialized: 'view'
 staging:
-materialized: 'view' # Staging are views (ephemeral)
+materialized: 'view' # Staging son views (ephemeral)
 marts:
-materialized: 'table' # Marts are tables (persistent)
+materialized: 'table' # Marts son tables (persistent)
 
-text
-undefined
 -- models/staging/stg_orders.sql
 SELECT
 order_id,
@@ -317,8 +293,6 @@ created_at as order_created_at
 FROM {{ source('ecommerce', 'raw_orders') }}
 WHERE order_status != 'cancelled'
 
-text
-undefined
 -- models/staging/stg_order_items.sql
 SELECT
 order_item_id,
@@ -326,22 +300,20 @@ order_id,
 product_id,
 quantity,
 unit_price,
-quantity * unit_price as line_total
+quantity \* unit_price as line_total
 FROM {{ source('ecommerce', 'raw_order_items') }}
 
-text
-undefined
 -- models/intermediate/int_order_details.sql
 WITH orders AS (
-SELECT * FROM {{ ref('stg_orders') }}
+SELECT \* FROM {{ ref('stg_orders') }}
 ),
 
 order_items AS (
-SELECT * FROM {{ ref('stg_order_items') }}
+SELECT \* FROM {{ ref('stg_order_items') }}
 ),
 
 products AS (
-SELECT * FROM {{ ref('stg_products') }}
+SELECT \* FROM {{ ref('stg_products') }}
 )
 
 SELECT
@@ -359,8 +331,6 @@ FROM orders o
 JOIN order_items oi ON o.order_id = oi.order_id
 JOIN products p ON oi.product_id = p.product_id
 
-text
-undefined
 -- models/marts/fct_orders.sql (Fact table)
 {{ config(
 materialized='table',
@@ -376,8 +346,6 @@ MIN(order_date) as order_date
 FROM {{ ref('int_order_details') }}
 GROUP BY order_id, customer_id, order_date
 
-text
-undefined
 -- models/marts/dim_customers.sql (Dimension table)
 {{ config(
 materialized='table',
@@ -385,7 +353,7 @@ unique_id='customer_id'
 ) }}
 
 WITH customers AS (
-SELECT * FROM {{ ref('stg_customers') }}
+SELECT \* FROM {{ ref('stg_customers') }}
 ),
 
 order_summary AS (
@@ -406,22 +374,20 @@ COALESCE(o.lifetime_value, 0) as lifetime_value
 FROM customers c
 LEFT JOIN order_summary o ON c.customer_id = o.customer_id
 
-text
-
 **Execution:**
 dbt run
 
-Runs in dependency order:
+Runs en dependency order:
+
 1. stg_customers, stg_orders, stg_order_items, stg_products (staging views)
 2. int_order_details (intermediate)
 3. fct_orders, dim_customers (marts/tables)
-dbt test
+   dbt test
 
-Validates: No nulls in PKs, relationships intact, row counts healthy
+Validates: No nulls en PKs, relationships intact, row counts healthy
 dbt docs generate
 
 Creates lineage diagram + documentation portal
-text
 
 ---
 
@@ -434,66 +400,66 @@ from datetime import datetime
 
 with DAG(
 'dbt_orchestration',
-schedule_interval='0 1 * * *',
+schedule_interval='0 1 \* \* \*',
 start_date=datetime(2024, 1, 1)
 ) as dag:
 
-text
-# Run dbt project in Airflow
+# Run dbt project en Airflow
+
 dbt_run = DbtTaskGroup(
-    group_id='transform',
-    dbt_project_path='/path/to/dbt_project',
-    dbt_profiles_dir='/path/to/.dbt',
-    dbt_command='dbt run --select +fct_orders'
+group_id='transform',
+dbt_project_path='/path/to/dbt_project',
+dbt_profiles_dir='/path/to/.dbt',
+dbt_command='dbt run --select +fct_orders'
 )
 
-# Test after transform
+# Test después del transform
+
 dbt_test = DbtTaskGroup(
-    group_id='test',
-    dbt_project_path='/path/to/dbt_project',
-    dbt_command='dbt test'
+group_id='test',
+dbt_project_path='/path/to/dbt_project',
+dbt_command='dbt test'
 )
 
 dbt_run >> dbt_test
 Airflow orchestrates dbt models (task scheduling + error handling)
 dbt handles SQL transformation + testing
-text
 
 ---
 
 ## Errores Comunes en Entrevista
 
-- **Error**: "dbt is for SQL only" → **Solución**: True, but 80% of transforms ARE SQL
+- **Error**: "dbt is for SQL only" → **Solución**: True, pero el 80% de los transforms SON SQL
 
-- **Error**: Using dbt without version control → **Solución**: dbt shines with Git (CI/CD, code review)
+- **Error**: Usar dbt sin version control → **Solución**: dbt brilla con Git (CI/CD, code review)
 
-- **Error**: No data quality tests → **Solución**: dbt tests catch bugs BEFORE they reach analytics
+- **Error**: No data quality tests → **Solución**: dbt tests detectan bugs ANTES de que lleguen a analytics
 
-- **Error**: Mixing Python ETL + dbt → **Solución**: Use dbt for SQL transforms, Python for complex logic only
+- **Error**: Mezclar Python ETL + dbt → **Solución**: Usar dbt para SQL transforms, Python solo para complex logic
 
 ---
 
 ## Preguntas de Seguimiento
 
-1. **"¿dbt vs Spark SQL?"**
-   - dbt: SQL-first, testing, docs, warehouse-native
-   - Spark: Distributed, complex logic, not SQL-only
+1.  **"¿dbt vs Spark SQL?"**
+    - dbt: SQL-first, testing, docs, warehouse-native
+    - Spark: Distributed, complex logic, no SQL-only
 
-2. **"¿View vs Table in dbt?"**
-   - View: No storage, latest always
-   - Table: Storage cost, fast queries
-   - Choose based on size + query frequency
+2.  **"¿View vs Table en dbt?"**
+    - View: No storage, latest always
+    - Table: Storage cost, fast queries
+    - Elegir basado en size + query frequency
 
-3. **"¿Incremental models?"**
-   - Full table first run
-   - Append only new rows on refresh
-   - Critical for large tables (billions of rows)
+3.  **"¿Incremental models?"**
+    - Full table en la primera ejecución
+    - Append solo new rows en cada refresh
+    - Critical para large tables (billions of rows)
 
-4. **"¿dbt project structure?"**
-   - staging/ (minimal transforms)
-   - intermediate/ (business logic)
-   - marts/ (final tables)
-   - Keeps code organized + debuggable
+4.  **"¿dbt project structure?"**
+    - staging/ (minimal transforms)
+    - intermediate/ (business logic)
+    - marts/ (final tables)
+    - Mantiene el code organized + debuggable
 
 ---
 
@@ -502,4 +468,3 @@ text
 - [dbt Official Docs](https://docs.getdbt.com/)
 - [dbt Best Practices](https://docs.getdbt.com/guides/best-practices)
 - [dbt + Airflow Integration](https://cosmos.astronomer.io/)
-

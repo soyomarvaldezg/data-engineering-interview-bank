@@ -1,21 +1,18 @@
 # Multi-Cloud Strategy & Trade-offs
 
-**Tags**: #cloud #strategy #aws-vs-gcp-vs-azure #trade-offs #architecture #real-interview  
-**Empresas**: Amazon, Google, Meta, Netflix, Uber  
-**Dificultad**: Senior  
-**Tiempo estimado**: 18 min
+**Tags**: #cloud #strategy #aws-vs-gcp-vs-azure #trade-offs #architecture #real-interview
 
 ---
 
 ## TL;DR
 
-Multi-cloud = usar múltiples providers. Razones: evitar vendor lock-in, poder de negociación, cobertura regional, best-of-breed services. Trade-off: complejidad, operational overhead, costos de data movement. Recomendación: elige 1 primary (AWS o GCP o Azure) y agrega un 2nd solo por necesidad específica. Evita 3+ clouds.
+Multi-cloud = utilizar múltiples providers. Razones: evitar vendor lock-in, poder de negociación, cobertura regional, best-of-breed services. Trade-off: complejidad, operational overhead, costos de data movement. Recomendación: elige 1 primary (AWS o GCP o Azure) y agrega un 2nd solo por necesidad específica. Evita 3+ clouds.
 
 ---
 
 ## Concepto Core
 
-- Qué es: Usar más de un cloud provider dentro de la misma arquitectura/producto.
+- Qué es: Utilizar más de un cloud provider dentro de la misma arquitectura/producto.
 - Por qué importa: Es una decisión estratégica que impacta costo, complejidad, seguridad, contratación y operaciones por años.
 - Principio clave: El costo de abstracción y operación suele ser mayor que el costo de vendor lock-in para la mayoría de compañías.
 
@@ -76,21 +73,6 @@ Multi-cloud = usar múltiples providers. Razones: evitar vendor lock-in, poder d
 - Secondary (Azure): identidad (Azure AD), SQL Server, Synapse para apps corporativas.
 - Motivo: Licencias existentes y ecosistema Microsoft; transición híbrida por etapas.
 - Patrón común: No “multi-cloud” por gusto, sino por herencia y contratos.
-
----
-
-## Multi-Cloud: Comparison Matrix
-
-| Aspecto    | AWS       | GCP         | Azure      |
-| ---------- | --------- | ----------- | ---------- |
-| Warehouse  | Redshift  | BigQuery ✓  | Synapse    |
-| Streaming  | Kinesis   | Pub/Sub ✓   | Event Hubs |
-| ML/AI      | SageMaker | Vertex AI ✓ | Azure ML   |
-| Cost       | Mid       | Low ✓       | Mid        |
-| Ease       | Mid-Low   | High ✓      | Mid        |
-| Enterprise | Good      | Developing  | Best ✓     |
-
-✓ = Mejor categoría típica (depende del caso de uso).
 
 ---
 
@@ -227,10 +209,5 @@ Multi-cloud = usar múltiples providers. Razones: evitar vendor lock-in, poder d
 
 - [Multi-Cloud Strategy, Architecture, Benefits, Challenges, Solutions](https://www.wildnetedge.com/blogs/multi-cloud-strategy-architecture-benefits-challenges-solutions)
 - [Multi-Cloud Strategies Business 2025](https://www.growin.com/blog/multi-cloud-strategies-business-2025/)
-- [Multi-Cloud Strategy: Benefits, Challenges, Tips - Peter Madubueze](https://www.linkedin.com/pulse/multi-cloud-strategy-benefits-challenges-tips-peter-madubueze--idbkf)
 - [Multi-Cloud Strategies: The 2025-2026 Primer](https://www.itconvergence.com/blog/multi-cloud-strategies-the-2025-2026-primer/)
-- [Multi-Cloud vs Hybrid Cloud Strategies in 2025](https://www.refontelearning.com/blog/multi-cloud-vs-hybrid-cloud-strategies-in-2025)
 - [Multi-Cloud Adoption Strategies 2025](https://arkentechpublishing.com/multi-cloud-adoption-strategies-2025/)
-- [What is MultiCloud - Oracle](https://www.oracle.com/africa/cloud/multicloud/what-is-multicloud/)
-- [Multi-Cloud Strategy Benefits](https://www.bunnyshell.com/blog/multi-cloud-strategy-benefits/)
-- [Cloud Computing: Benefits and Challenges](https://www.emma.ms/blog/cloud-computing-benefits-and-challenges)

@@ -1,9 +1,6 @@
 # Transformations & Actions: Lazy Evaluation
 
-**Tags**: #pyspark #transformations #actions #lazy-evaluation #fundamental #real-interview  
-**Empresas**: Amazon, Google, Databricks, Uber  
-**Dificultad**: Mid  
-**Tiempo estimado**: 22 min
+**Tags**: #pyspark #transformations #actions #lazy-evaluation #fundamental #real-interview
 
 ---
 
@@ -47,42 +44,40 @@
 
 ### Conceptual: Lazy vs Eager
 
+```python
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 
 spark = SparkSession.builder.appName("Lazy Evaluation").getOrCreate()
 
-Leer datos
+# Leer datos
 df = spark.read.parquet("data.parquet")
 
-===== TRANSFORMATIONS (Lazy) =====
-Ninguna de estas ejecuta. Spark solo PLANEA qué hacer
-Transf 1: Filter
+# ===== TRANSFORMATIONS (Lazy) =====
+# Ninguna de estas ejecuta. Spark solo PLANEA qué hacer
+# Transf 1: Filter
 filtered = df.filter(col("age") > 25)
 
-Transf 2: Select
+# Transf 2: Select
 selected = filtered.select("name", "salary")
 
-Transf 3: GroupBy
+# Transf 3: GroupBy
 grouped = selected.groupBy("department").avg("salary")
 
-En este punto: NADA se ha ejecutado. Spark tiene el plan pero no corre
+# En este punto: NADA se ha ejecutado. Spark tiene el plan pero no corre
 print("Plan lógico (no ejecutado):")
 grouped.explain(mode="simple")
 
-===== ACTION: AHORA se ejecuta TODO =====
-result = grouped.collect() # ← AQUÍ Spark ejecuta transformations 1-3
+# ===== ACTION: AHORA se ejecuta TODO =====
+result = grouped.collect()  # ← AQUÍ Spark ejecuta transformations 1-3
 
 print("Resultado:", result)
-
-text
+```
 
 **Timeline:**
 Línea 1-12: Spark construye plan (instantáneo)
 Línea 15: explain() muestra plan (no ejecuta)
 Línea 18: collect() ejecuta TODO (toma tiempo)
-
-text
 
 ---
 
@@ -91,40 +86,71 @@ text
 ===== Transformations que DEVUELVEN DataFrame/RDD =====
 
 1. FILTER: Filas que cumplen condición
+
+   ```python
    filtered = df.filter(col("salary") > 50000)
+   ```
 
 2. SELECT: Columnas específicas
+
+   ```python
    selected = df.select("name", "salary")
+   ```
 
 3. WITHCOLUMN: Agregar/modificar columna
-   with_bonus = df.withColumn("bonus", col("salary") \* 0.1)
+
+   ```python
+   with_bonus = df.withColumn("bonus", col("salary") * 0.1)
+   ```
 
 4. MAP: Transformación custom (RDD)
-   squared_rdd = numbers_rdd.map(lambda x: x \*\* 2)
+
+   ```python
+   squared_rdd = numbers_rdd.map(lambda x: x ** 2)
+   ```
 
 5. FLATMAP: Map + flatten
+
+   ```python
    words = text_rdd.flatMap(lambda line: line.split())
+   ```
 
 6. JOIN: Combina DataFrames
+
+   ```python
    joined = df1.join(df2, "id")
+   ```
 
 7. UNION: Combina verticalmente
+
+   ```python
    combined = df1.union(df2)
+   ```
 
 8. GROUPBY: Agrupa (devuelve GroupedData, aún lazy)
+
+   ```python
    grouped = df.groupBy("department")
+   ```
 
 9. SORT: Ordena
+
+   ```python
    sorted_df = df.sort(col("salary").desc())
+   ```
 
 10. DISTINCT: Únicos
+
+    ```python
     unique = df.select("department").distinct()
+    ```
 
 11. DROP: Elimina columna
+    ```python
     dropped = df.drop("unnecessary_column")
+    ```
 
 NINGUNA DE ESTAS EJECUTÓ NADA. Son planes.
-text
 
 ---
 
@@ -133,36 +159,62 @@ text
 ===== ACTIONS: Estos sí ejecutan TODO =====
 
 1. COLLECT: Trae TODO a driver (⚠️ cuidado con datasets grandes)
+
+   ```python
    all_data = df.collect()
+   ```
 
 2. TAKE: Primeras N filas
+
+   ```python
    first_10 = df.take(10)
+   ```
 
 3. FIRST: Primera fila
+
+   ```python
    first_row = df.first()
+   ```
 
 4. COUNT: Número de filas
+
+   ```python
    row_count = df.count()
+   ```
 
 5. SHOW: Muestra primeras 20 filas en consola
+
+   ```python
    df.show()
+   ```
 
 6. WRITE: Guarda a storage (S3, HDFS, Parquet)
+
+   ```python
    df.write.parquet("output/result.parquet")
+   ```
 
 7. FOREACH: Aplica función a cada fila
+
+   ```python
    def process_row(row):
-   print(row)
+       print(row)
+
    df.foreach(process_row)
+   ```
 
 8. REDUCE: Reduce RDD a 1 valor (RDD only)
+
+   ```python
    sum_rdd = numbers_rdd.reduce(lambda a, b: a + b)
+   ```
 
 9. SAVEASTEXTFILE: Guarda como texto (RDD)
+   ```python
    rdd.saveAsTextFile("output/")
+   ```
 
 TODAS ESTAS EJECUTAN. Buscan el plan, lo optimizan, lo corren.
-text
 
 ---
 
@@ -170,48 +222,51 @@ text
 
 ### Escenario: Pipeline de Ventas
 
-Datos: millones de transacciones
+```python
+# Datos: millones de transacciones
 sales = spark.read.parquet("sales.parquet")
 
-Plan (no ejecuta):
+# Plan (no ejecuta):
 monthly_report = (
-sales
-.filter(col("status") == "completed") # Transf 1
-.filter(col("amount") > 0) # Transf 2
-.withColumn("month", to_date(col("date"))) # Transf 3
-.groupBy("month", "product") # Transf 4
-.agg(sum("amount").alias("revenue")) # Transf 5
-.sort(col("revenue").desc()) # Transf 6
+    sales
+    .filter(col("status") == "completed")  # Transf 1
+    .filter(col("amount") > 0)             # Transf 2
+    .withColumn("month", to_date(col("date")))  # Transf 3
+    .groupBy("month", "product")           # Transf 4
+    .agg(sum("amount").alias("revenue"))   # Transf 5
+    .sort(col("revenue").desc())           # Transf 6
 )
 
 print("Plan construido (instantáneo)")
 print(monthly_report.explain(mode="simple"))
 
-===== PRIMER ACTION =====
+# ===== PRIMER ACTION =====
 print("COLLECT (action 1): Trae TODO a driver")
 result = monthly_report.collect()
 
-Aquí: Spark ejecuta transf 1-6 JUNTAS (no uno por uno)
-Catalyst optimizó: predicate pushdown, column pruning, etc.
-===== SEGUNDO ACTION (diferente) =====
+# Aquí: Spark ejecuta transf 1-6 JUNTAS (no uno por uno)
+# Catalyst optimizó: predicate pushdown, column pruning, etc.
+
+# ===== SEGUNDO ACTION (diferente) =====
 print("WRITE (action 2): Guarda a Parquet")
 monthly_report.write.parquet("output/sales_report")
 
-Aquí: Spark ejecuta transf 1-6 de nuevo (cada action es ejecución nueva)
-PERO el plan se re-optimiza
-text
+# Aquí: Spark ejecuta transf 1-6 de nuevo (cada action es ejecución nueva)
+# PERO el plan se re-optimiza
+```
 
 ⚠️ **Importante**: Cada action re-ejecuta transformations anteriores. Si usas resultado múltiples veces, **cachea**:
 
-Cachear antes de múltiples actions
+```python
+# Cachear antes de múltiples actions
 monthly_report.cache()
 
-result1 = monthly_report.collect() # Ejecuta, cachea
-result2 = monthly_report.count() # Usa cache (rápido)
-result3 = monthly_report.write.parquet(...) # Usa cache (rápido)
+result1 = monthly_report.collect()  # Ejecuta, cachea
+result2 = monthly_report.count()    # Usa cache (rápido)
+result3 = monthly_report.write.parquet(...)  # Usa cache (rápido)
 
-Sin cache, ejecutaría 3 veces la pipeline
-text
+# Sin cache, ejecutaría 3 veces la pipeline
+```
 
 ---
 
@@ -220,14 +275,19 @@ text
 Spark crea un DAG (Directed Acyclic Graph):
 
 Tu código:
+
+```python
 result = (
-df.filter(col("age") > 25)
-.select("name", "salary")
-.groupBy("department")
-.avg("salary")
+    df.filter(col("age") > 25)
+    .select("name", "salary")
+    .groupBy("department")
+    .avg("salary")
 )
+```
 
 Spark internamente:
+
+```
 Read Parquet
 ↓
 Filter (age > 25) ← Predicate pushdown aquí (Catalyst)
@@ -237,18 +297,15 @@ Select (name, salary) ← Column pruning aquí
 GroupBy + Agg
 ↓
 Output
+```
+
 Plan COMPLETO se optimiza antes de ejecutar
-text
 
 **Sin lazy evaluation (❌ ineficiente):**
 Read → (ejecuta) → Filter → (ejecuta) → Select → (ejecuta) → GroupBy → (ejecuta)
 
-text
-
 **Con lazy evaluation (✅ eficiente):**
 Read + Filter + Select + GroupBy → (optimiza TODO junto) → (ejecuta una sola vez)
-
-text
 
 ---
 
@@ -291,34 +348,35 @@ text
 
 ## Patrón Common: Pipeline Real
 
-Lectura
+```python
+# Lectura
 orders = spark.read.parquet("orders.parquet")
 customers = spark.read.parquet("customers.parquet")
 
-Transformations (planea, no ejecuta)
+# Transformations (planea, no ejecuta)
 pipeline = (
-orders
-.filter(col("year") == 2024) # Predicate pushdown
-.join(customers, "customer_id") # Broadcast si customers es pequeño
-.select("name", "order_amount", "category")
-.groupBy("category")
-.agg(sum("order_amount").alias("total"))
+    orders
+    .filter(col("year") == 2024)      # Predicate pushdown
+    .join(customers, "customer_id")   # Broadcast si customers es pequeño
+    .select("name", "order_amount", "category")
+    .groupBy("category")
+    .agg(sum("order_amount").alias("total"))
 )
 
-Cachea si lo usarás múltiples veces
+# Cachea si lo usarás múltiples veces
 pipeline.cache()
 
-Action 1
+# Action 1
 pipeline.show()
 
-Action 2
+# Action 2
 pipeline.write.parquet("output/summary")
 
-Action 3
+# Action 3
 count = pipeline.count()
 
-Sin cache, ejecutaría 3 veces. Con cache, 1 ejecución + 2 lecturas de cache.
-text
+# Sin cache, ejecutaría 3 veces. Con cache, 1 ejecución + 2 lecturas de cache.
+```
 
 ---
 
@@ -326,4 +384,3 @@ text
 
 - [Lazy Evaluation - Spark Docs](https://spark.apache.org/docs/latest/rdd-programming-guide.html#lazy-evaluation)
 - [Transformations & Actions - PySpark](https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/dataframe.html)
-- [Explain Plans - Databricks](https://docs.databricks.com/en/spark/latest/spark-sql/query-optimizer.html)

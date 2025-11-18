@@ -1,9 +1,6 @@
 # CTEs (Common Table Expressions) - WITH Clause
 
-**Tags**: #sql #cte #readability #best-practices #real-interview  
-**Empresas**: Amazon, Adobe, Google, Stripe  
-**Dificultad**: Mid  
-**Tiempo estimado**: 18 min
+**Tags**: #sql #cte #readability #best-practices #real-interview
 
 ---
 
@@ -41,10 +38,11 @@ Un **CTE (WITH clause)** es una tabla temporal dentro del query. Te permite escr
 
 ### Problema: Query Anidado (Difícil de leer)
 
+```sql
 SELECT
 customer_id,
 (SELECT AVG(order_amount) FROM orders o2 WHERE o2.customer_id = o1.customer_id) as avg_order,
-(SELECT COUNT(\*) FROM orders o3 WHERE o3.customer_id = o1.customer_id AND o3.status = 'completed') as completed_orders
+(SELECT COUNT(*) FROM orders o3 WHERE o3.customer_id = o1.customer_id AND o3.status = 'completed') as completed_orders
 FROM orders o1
 WHERE customer_id IN (
 SELECT customer_id FROM orders
@@ -52,13 +50,13 @@ GROUP BY customer_id
 HAVING SUM(order_amount) > 1000
 )
 GROUP BY customer_id;
-
-text
+```
 
 ❌ **Problema**: Anidado, difícil de seguir, subqueries ejecutadas múltiples veces
 
 ### Solución: Con CTEs (Limpio y legible)
 
+```sql
 -- Paso 1: Clientes con compras > 1000
 WITH high_value_customers AS (
 SELECT
@@ -73,7 +71,7 @@ HAVING SUM(order_amount) > 1000
 customer_stats AS (
 SELECT
 customer_id,
-COUNT(\*) as total_orders,
+COUNT(*) as total_orders,
 AVG(order_amount) as avg_order_amount,
 MAX(order_amount) as max_order,
 MIN(order_amount) as min_order
@@ -93,8 +91,7 @@ ROUND(h.total_spent / s.total_orders, 2) as avg_per_order
 FROM high_value_customers h
 JOIN customer_stats s ON h.customer_id = s.customer_id
 ORDER BY h.total_spent DESC;
-
-text
+```
 
 ✅ **Ventajas**:
 
@@ -107,6 +104,7 @@ text
 
 ## Multiple CTEs (Encadenadas)
 
+```sql
 WITH
 -- CTE 1: Base de datos limpia
 cleaned_orders AS (
@@ -128,7 +126,7 @@ monthly_summary AS (
 SELECT
 customer_id,
 DATE_TRUNC('month', order_date) as month,
-COUNT(\*) as orders_that_month,
+COUNT(*) as orders_that_month,
 SUM(adjusted_amount) as revenue_that_month
 FROM cleaned_orders
 GROUP BY customer_id, DATE_TRUNC('month', order_date)
@@ -152,8 +150,7 @@ revenue_that_month
 FROM ranked_customers
 WHERE rank_in_customer_history <= 3
 ORDER BY customer_id, revenue_that_month DESC;
-
-text
+```
 
 ---
 
@@ -161,6 +158,7 @@ text
 
 Para problemas con jerarquías o secuencias:
 
+```sql
 -- Ejemplo: Generar números del 1 al 10
 WITH RECURSIVE numbers AS (
 -- Anchor (caso base)
@@ -173,9 +171,8 @@ SELECT num + 1
 FROM numbers
 WHERE num < 10
 )
-SELECT \* FROM numbers;
-
-text
+SELECT * FROM numbers;
+```
 
 ⚠️ **Cuidado**: Recursive CTEs pueden ser lentas. Usa con moderación.
 
@@ -232,10 +229,11 @@ text
 
 En data engineering, CTEs se usan constantemente:
 
+```sql
 WITH
 -- Stage 1: Source data
 source_data AS (
-SELECT \* FROM raw_events WHERE date >= '2024-01-01'
+SELECT * FROM raw_events WHERE date >= '2024-01-01'
 ),
 
 -- Stage 2: Transformations
@@ -252,7 +250,7 @@ FROM source_data
 daily_summary AS (
 SELECT
 DATE(event_time) as event_date,
-COUNT(\*) as total_events,
+COUNT(*) as total_events,
 SUM(revenue) as daily_revenue
 FROM transformed_data
 GROUP BY DATE(event_time)
@@ -260,14 +258,12 @@ GROUP BY DATE(event_time)
 
 -- Final: Load to warehouse
 INSERT INTO analytics.daily_events
-SELECT \* FROM daily_summary;
-
-text
+SELECT * FROM daily_summary;
+```
 
 ---
 
 ## Referencias
 
 - [CTEs (WITH clause) - PostgreSQL Docs](https://www.postgresql.org/docs/current/queries-with.html)
-- [CTEs Explained - Mode Analytics](https://mode.com/sql-tutorial/sql-cte/)
 - [Recursive CTEs - Advanced SQL](https://www.postgresql.org/docs/current/queries-with.html#QUERIES-WITH-RECURSIVE)
