@@ -90,6 +90,7 @@ Cada pregunta sigue este patrón:
 - [Daniel Santos](https://www.youtube.com/@danielsantosdata)
 - [Hazlo con Datos](https://www.youtube.com/@HazloConDatos)
 - [Nataya Flores](https://www.youtube.com/@natayadev/videos)
+- [Keyla Dolores](https://www.youtube.com/@KeylaDolores)
 
 ### 📇 LinkedIn Data Profiles
 
@@ -103,6 +104,10 @@ Cada pregunta sigue este patrón:
 - [Nataya Flores](https://www.linkedin.com/in/natayadev/)
 - [Flavio Cesar Sandoval](https://www.linkedin.com/in/flaviocesarsandoval/)
 - [CodinEric](https://www.linkedin.com/in/eric-rishmuller/)
+- [Keyla Dolores](https://www.linkedin.com/in/keyladolores/)
+- [Elias Velazquez](https://www.linkedin.com/in/eliassvelazquez/)
+- [Antony Henao](https://www.linkedin.com/in/ajhenaor/)
+- [Ian Saura](https://www.linkedin.com/in/ian-saura/)
 
 ### 🐦 X / Twitter Profiles
 
@@ -111,16 +116,19 @@ Cada pregunta sigue este patrón:
 - [Fabricio Lennart](https://x.com/fabriciolennart)
 - [CodinEric](https://x.com/CodinEric)
 - [Flavio Cesar Sandoval](https://x.com/DSandovalFlavio)
+- [Elias Velazquez](https://x.com/esvdev)
+- [Antony Henao](https://x.com/ajhenaor)
 
 ### 🧭 Cursos / Roadmaps
 
-- [Dataneo x Bruno Masciarelli](https://www.dateneo.com/)
+- [Dateneo x Bruno Masciarelli](https://www.dateneo.com/)
 - [Data Engineer Specialist x Daniel Santos](https://datahackersacademy.com/workshop/data-engineer-specialist#inicio)
 - [Data Engineering Roadmap x Nataya Flores](https://github.com/natayadev/dataengineering-roadmap?tab=readme-ov-file)
+- [Bootcamp Fundamentos Data Engineering x Ian Saura](https://iansaura.com/bootcamps)
 - [Data Engineering Roadmap x roadmap.sh](https://roadmap.sh/data-engineer)
 - [Awesome Data Engineering GitHub Repo](https://github.com/igorbarinov/awesome-data-engineering)
 - [Data Engineering Roadmap x DataExpert.io](https://blog.dataexpert.io/p/the-2025-breaking-into-data-engineering-roadmap)
-- https://de101.startdataengineering.com/
+- [101 Start Data Engineering](https://de101.startdataengineering.com/)
 
 ### 💬 Comunidades
 
@@ -132,6 +140,19 @@ Cada pregunta sigue este patrón:
 - [Omar Valdez](https://www.instagram.com/soyomarvaldezg)
 - [CodinEric](https://www.instagram.com/codin_eric)
 - [Nataya Dev](https://www.instagram.com/natayadev)
+- [Antony Henao](https://www.instagram.com/ajhenaor/)
+- [Ian Saura](https://www.instagram.com/iansaura/)
+
+### TikTok
+
+- [Omar Valdez](https://www.tiktok.com/@soyomarvaldezg)
+- [Ian Saura](https://www.tiktok.com/@iansaura)
+
+### Blogs
+
+- [Omar Valdez](https://soyomarvaldezg.substack.com/)
+- [El Ingeniero Consciente x Elias Velazquez](https://elingenieroconsciente.substack.com/)
+- [The Latam Engineer x Antony Henao](https://thelatamengineer.substack.com/)
 
 ---
 
