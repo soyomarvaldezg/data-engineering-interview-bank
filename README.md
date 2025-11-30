@@ -126,6 +126,7 @@ Cada pregunta sigue este patrón:
 - [Data Engineering Roadmap x Nataya Flores](https://github.com/natayadev/dataengineering-roadmap?tab=readme-ov-file)
 - [Bootcamp Fundamentos Data Engineering x Ian Saura](https://iansaura.com/bootcamps)
 - [Roadmap Interactivo, Proyectos y Videos x Ian Saura](https://iansaura.com/suscripcion)
+- [Bootcamp Ingeniería de datos x Kremlin Huaman](https://www.datacore.com.pe/bootcamp/bootcamp_data_engineering/)
 - [Data Engineering Roadmap x roadmap.sh](https://roadmap.sh/data-engineer)
 - [Awesome Data Engineering GitHub Repo](https://github.com/igorbarinov/awesome-data-engineering)
 - [Data Engineering Roadmap x DataExpert.io](https://blog.dataexpert.io/p/the-2025-breaking-into-data-engineering-roadmap)
